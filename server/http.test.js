@@ -1,5 +1,60 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRecipesHandler, createStatusHandler } from "./http.js";
+import supertest from "supertest";
+import { createApp, createRecipesHandler, createStatusHandler } from "./http.js";
+
+function makeService(overrides = {}) {
+  return {
+    refreshRecipes: vi.fn().mockResolvedValue({ usedCache: false, total: 0 }),
+    enrichPendingRecipes: vi.fn().mockResolvedValue(undefined),
+    listRecipes: vi.fn().mockReturnValue({ usedCache: false, total: 0, enriched: 0, recipes: [] }),
+    getStatus: vi.fn().mockReturnValue({ usedCache: false, total: 0, enriched: 0 }),
+    ...overrides
+  };
+}
+
+describe("GET /health", () => {
+  it("returns 200 ok", async () => {
+    const app = createApp(makeService());
+    await supertest(app).get("/health").expect(200, { status: "ok" });
+  });
+});
+
+describe("404 handler", () => {
+  it("returns 404 json for unknown routes", async () => {
+    const app = createApp(makeService());
+    const res = await supertest(app).get("/not-a-route").expect(404);
+    expect(res.body).toEqual({ error: "Not found" });
+  });
+});
+
+describe("error middleware", () => {
+  it("returns 500 when a handler throws", async () => {
+    const service = makeService({
+      refreshRecipes: vi.fn().mockRejectedValue(new Error("boom"))
+    });
+    const app = createApp(service);
+    const res = await supertest(app).get("/api/recipes?q=test").expect(500);
+    expect(res.body).toEqual({ error: "Internal server error" });
+  });
+});
+
+describe("CORS", () => {
+  it("allows cross-origin requests when no staticDir is set (dev mode)", async () => {
+    const app = createApp(makeService());
+    const res = await supertest(app)
+      .get("/health")
+      .set("Origin", "http://localhost:5173");
+    expect(res.headers["access-control-allow-origin"]).toBeTruthy();
+  });
+
+  it("omits CORS headers when staticDir is set (production mode)", async () => {
+    const app = createApp(makeService(), { staticDir: "/nonexistent-but-doesnt-matter" });
+    const res = await supertest(app)
+      .get("/health")
+      .set("Origin", "http://attacker.example");
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+});
 
 describe("http api", () => {
   it("returns recipe data without waiting for enrichment", async () => {
