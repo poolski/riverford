@@ -81,30 +81,37 @@ export function createRecipeService({ store, fetchText }) {
   };
 }
 
-function filterRecipes(recipes, { title, ingredients = [], category } = {}) {
-  const normalizedQueryIngredients = [
-    ...new Set(ingredients.map(normalizeIngredient).filter(Boolean))
+function filterRecipes(recipes, { terms = [], category } = {}) {
+  const normalizedTerms = [
+    ...new Set(terms.map(normalizeIngredient).filter(Boolean))
   ];
 
   return recipes
     .filter((recipe) =>
-      title ? recipe.title.toLowerCase().includes(title.toLowerCase()) : true
+      normalizedTerms.length === 0 ||
+      normalizedTerms.every(
+        (term) =>
+          recipe.title.toLowerCase().includes(term) ||
+          recipe.normalizedIngredients.some(
+            (ri) => ri.startsWith(term) || term.startsWith(ri)
+          )
+      )
     )
     .filter((recipe) =>
-      category && category !== "All" ? recipe.categories.includes(category) : true
+      category && category !== "All"
+        ? recipe.categories.includes(category)
+        : true
     )
     .map((recipe) => {
-      const matchedIngredients = normalizedQueryIngredients.filter((queryIngredient) =>
+      const matchedIngredients = normalizedTerms.filter((term) =>
         recipe.normalizedIngredients.some(
-          (recipeIngredient) =>
-            recipeIngredient.startsWith(queryIngredient) || queryIngredient.startsWith(recipeIngredient)
+          (ri) => ri.startsWith(term) || term.startsWith(ri)
         )
       );
       const missingIngredients = recipe.normalizedIngredients.filter(
-        (recipeIngredient) =>
-          !normalizedQueryIngredients.some(
-            (queryIngredient) =>
-              recipeIngredient.startsWith(queryIngredient) || queryIngredient.startsWith(recipeIngredient)
+        (ri) =>
+          !normalizedTerms.some(
+            (term) => ri.startsWith(term) || term.startsWith(ri)
           )
       );
       return {
@@ -118,9 +125,6 @@ function filterRecipes(recipes, { title, ingredients = [], category } = {}) {
             : matchedIngredients.length / recipe.normalizedIngredients.length
       };
     })
-    .filter((recipe) =>
-      normalizedQueryIngredients.length > 0 ? recipe.matchCount > 0 : true
-    )
     .sort(
       (left, right) =>
         right.matchCount - left.matchCount ||

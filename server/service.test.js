@@ -216,18 +216,21 @@ describe("recipe service", () => {
     });
     const service = createRecipeService({ store, fetchText: vi.fn() });
 
-    expect(
-      service.listRecipes({
-        title: "soup",
-        ingredients: ["potato"],
-        category: "Soup"
-      }).recipes
-    ).toEqual([
-      expect.objectContaining({
-        title: "Potato Soup",
-        matchedIngredients: ["potato"]
-      })
-    ]);
+    const recipes = service.listRecipes({
+      terms: ["soup", "potato"],
+      category: "Soup"
+    }).recipes;
+
+    // Both recipes match "soup" and "potato" via title. Potato Soup also
+    // matches "potato" via ingredient, so it ranks first.
+    expect(recipes[0]).toMatchObject({
+      title: "Potato Soup",
+      matchedIngredients: ["potato"]
+    });
+    expect(recipes[1]).toMatchObject({
+      title: "Sweet Potato Soup",
+      matchedIngredients: []
+    });
     store.close();
   });
 
@@ -248,7 +251,7 @@ describe("recipe service", () => {
     );
     const service = createRecipeService({ store, fetchText: vi.fn() });
 
-    const result = service.listRecipes({ ingredients: ["chicken"] });
+    const result = service.listRecipes({ terms: ["chicken"] });
 
     expect(result.recipes).toHaveLength(1);
     expect(result.recipes[0]).toMatchObject({
@@ -276,7 +279,7 @@ describe("recipe service", () => {
     );
     const service = createRecipeService({ store, fetchText: vi.fn() });
 
-    const result = service.listRecipes({ ingredients: ["chicken"] });
+    const result = service.listRecipes({ terms: ["chicken"] });
 
     expect(result.recipes).toHaveLength(0);
     store.close();
@@ -299,7 +302,7 @@ describe("recipe service", () => {
     );
     const service = createRecipeService({ store, fetchText: vi.fn() });
 
-    const result = service.listRecipes({ ingredients: ["chicken"] });
+    const result = service.listRecipes({ terms: ["chicken"] });
     const recipe = result.recipes[0];
 
     expect(recipe.missingIngredients).not.toContain("chicken breast");
@@ -334,7 +337,7 @@ describe("recipe service", () => {
     );
     const service = createRecipeService({ store, fetchText: vi.fn() });
 
-    const result = service.listRecipes({ title: "pasta", ingredients: ["chicken"] });
+    const result = service.listRecipes({ terms: ["pasta", "chicken"] });
 
     expect(result.recipes).toHaveLength(1);
     expect(result.recipes[0].title).toBe("Chicken Pasta");
