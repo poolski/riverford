@@ -86,8 +86,9 @@ export function App() {
   }, [chips, selectedCategory]);
 
   const categories = useMemo(() => {
-    if (!data?.recipes) return [];
-    const values = new Set(data.recipes.flatMap((recipe) => recipe.categories));
+    const recipes = data?.recipes;
+    if (!Array.isArray(recipes) || recipes.length === 0) return [];
+    const values = new Set(recipes.flatMap((recipe) => recipe.categories ?? []));
     return [...values].sort((a, b) => a.localeCompare(b));
   }, [data]);
 
