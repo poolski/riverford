@@ -1,0 +1,20 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${PORT:-3001}:3001"
+    volumes:
+      - recipes-data:/data
+    environment:
+      PORT: "3001"
+      DATA_DIR: "/data"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  recipes-data:
