@@ -12,7 +12,8 @@ export function App() {
 
   useEffect(() => {
     let cancelled = false;
-    let intervalId;
+    let timeoutId = null;
+    let lastTotal = 0;
 
     async function loadStatus() {
       if (inFlightRef.current) return;
@@ -28,6 +29,7 @@ export function App() {
         if (!response.ok) throw new Error("Unable to load recipes");
         const payload = await response.json();
         if (!cancelled) {
+          lastTotal = payload.total;
           setData((current) => ({
             ...payload,
             recipes: current?.recipes ?? []
@@ -43,15 +45,17 @@ export function App() {
         if (abortControllerRef.current === controller) {
           abortControllerRef.current = null;
         }
+        if (!cancelled) {
+          timeoutId = window.setTimeout(loadStatus, lastTotal > 0 ? 3000 : 500);
+        }
       }
     }
 
     loadStatus();
-    intervalId = window.setInterval(loadStatus, 3000);
 
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
       abortControllerRef.current?.abort();
     };
   }, []);

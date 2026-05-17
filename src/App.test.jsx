@@ -103,6 +103,25 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("re-polls within 1 second when total is 0, instead of waiting 3 seconds", async () => {
+    let calls = 0;
+    global.fetch = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      json: async () => ({
+        usedCache: false,
+        total: calls++ === 0 ? 0 : 2,
+        enriched: 0
+      })
+    }));
+
+    render(<App />);
+    await screen.findByText(/0 recipes ready/i);
+
+    // With a 500ms fast-poll interval the second call should arrive well within 1s
+    await screen.findByText(/2 recipes ready/i, { timeout: 1000 });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("shows a loading state before recipes arrive", () => {
     global.fetch = vi.fn(
       () =>
