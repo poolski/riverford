@@ -285,7 +285,7 @@ describe("recipe service", () => {
       expect.objectContaining({
         cookTime: "PT20M",
         servings: "2",
-        metadataVersion: 4
+        metadataVersion: 5
       })
     );
     store.close();
@@ -359,6 +359,66 @@ describe("recipe service", () => {
       matchedIngredients: ["chicken"],
       matchCount: 1
     });
+    store.close();
+  });
+
+  it("normalizes any 'X stock' ingredient to stock for matching", () => {
+    const store = createRecipeStore(dbPath);
+    store.upsertRecipes([
+      {
+        url: "https://www.riverford.co.uk/recipes/chicken-stew",
+        title: "Winter Broth"
+      }
+    ]);
+    store.updateMetadata(
+      "https://www.riverford.co.uk/recipes/chicken-stew",
+      {
+        categories: ["Main"],
+        ingredients: ["800ml chicken stock"]
+      }
+    );
+    const service = createRecipeService({ store, fetchText: vi.fn() });
+
+    expect(service.listRecipes({ terms: ["chicken"] }).recipes).toHaveLength(0);
+    expect(service.listRecipes({ terms: ["stock"] }).recipes).toHaveLength(1);
+    store.close();
+  });
+
+  it("treats stock-derived ingredients like stock cubes as stock", () => {
+    const store = createRecipeStore(dbPath);
+    store.upsertRecipes([
+      {
+        url: "https://www.riverford.co.uk/recipes/veg-stew",
+        title: "Veg Stew"
+      }
+    ]);
+    store.updateMetadata("https://www.riverford.co.uk/recipes/veg-stew", {
+      categories: ["Main"],
+      ingredients: ["1 chicken stock cube"]
+    });
+    const service = createRecipeService({ store, fetchText: vi.fn() });
+
+    expect(service.listRecipes({ terms: ["chicken"] }).recipes).toHaveLength(0);
+    expect(service.listRecipes({ terms: ["stock"] }).recipes).toHaveLength(1);
+    store.close();
+  });
+
+  it("treats multi-option stock lines as stock", () => {
+    const store = createRecipeStore(dbPath);
+    store.upsertRecipes([
+      {
+        url: "https://www.riverford.co.uk/recipes/root-broth",
+        title: "Root Broth"
+      }
+    ]);
+    store.updateMetadata("https://www.riverford.co.uk/recipes/root-broth", {
+      categories: ["Main"],
+      ingredients: ["chicken, duck, beef or vegetable stock"]
+    });
+    const service = createRecipeService({ store, fetchText: vi.fn() });
+
+    expect(service.listRecipes({ terms: ["chicken"] }).recipes).toHaveLength(0);
+    expect(service.listRecipes({ terms: ["stock"] }).recipes).toHaveLength(1);
     store.close();
   });
 
@@ -441,6 +501,32 @@ describe("recipe service", () => {
 
     expect(result.recipes).toHaveLength(1);
     expect(result.recipes[0].title).toBe("Chicken Pasta");
+    store.close();
+  });
+
+  it("marks selected URLs for refresh and returns status", async () => {
+    const store = createRecipeStore(dbPath);
+    store.upsertRecipes([
+      {
+        url: "https://www.riverford.co.uk/recipes/a",
+        title: "Recipe A"
+      }
+    ]);
+    store.updateMetadata("https://www.riverford.co.uk/recipes/a", {
+      categories: ["Veg"],
+      ingredients: ["carrot"]
+    });
+    const service = createRecipeService({ store, fetchText: vi.fn() });
+
+    const status = await service.requestRecipeRefresh({
+      urls: ["https://www.riverford.co.uk/recipes/a"],
+      force: false
+    });
+
+    expect(status).toMatchObject({ total: 1 });
+    expect(store.listPendingRecipeUrls()).toEqual([
+      "https://www.riverford.co.uk/recipes/a"
+    ]);
     store.close();
   });
 });

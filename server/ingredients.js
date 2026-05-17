@@ -25,22 +25,24 @@ export function normalizeRecipeIngredients(ingredients = []) {
 }
 
 export function normalizeIngredient(ingredient) {
-  let normalized = ingredient
+  const normalizedBase = ingredient
     .toLowerCase()
     .replace(
       /^\s*\d+(?:[./]\d+)?(?:\s*-\s*\d+(?:[./]\d+)?)?\s*(?:ml|g|kg|l)?\s*(?:of\s+)?/i,
       ""
     )
     .split(/[–—]/)[0]
-    .split(",")[0]
     .trim();
+
+  if (/\bstock\b/.test(normalizedBase)) return "stock";
+
+  let normalized = normalizedBase.split(",")[0].trim();
 
   normalized = normalized
     .replace(/^(?:a few|few|small bunch of|bunch of|handfuls? of)\s+/, "")
     .replace(/^(?:large|small|fresh|dried|minced|chopped|crushed)\s+/, "")
     .trim();
 
-  if (/\bstock$/.test(normalized)) return "stock";
   if (/\bgarlic\b/.test(normalized)) return "garlic";
   if (normalized === "salt & pepper" || normalized === "salt and pepper") {
     return "salt";

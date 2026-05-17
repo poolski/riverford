@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { normalizeRecipeIngredients } from "./ingredients.js";
 
 export function createRecipeStore(dbPath) {
-  const CURRENT_METADATA_VERSION = 4;
+  const CURRENT_METADATA_VERSION = 5;
   mkdirSync(dirname(dbPath), { recursive: true });
   const db = new Database(dbPath);
 
@@ -20,6 +20,7 @@ export function createRecipeStore(dbPath) {
       servings TEXT,
       metadata_version INTEGER NOT NULL DEFAULT 0,
       enrichment_status TEXT NOT NULL DEFAULT 'pending',
+      refresh_requested_at TEXT,
       fetched_at TEXT,
       enriched_at TEXT
     );
@@ -29,6 +30,7 @@ export function createRecipeStore(dbPath) {
   ensureColumn(db, "recipes", "metadata_version", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "recipes", "normalized_ingredients", "TEXT NOT NULL DEFAULT '[]'");
   ensureColumn(db, "recipes", "image", "TEXT");
+  ensureColumn(db, "recipes", "refresh_requested_at", "TEXT");
 
   const insert = db.prepare(`
     INSERT INTO recipes (url, title, fetched_at)
@@ -48,11 +50,12 @@ export function createRecipeStore(dbPath) {
         image = @image,
         metadata_version = @metadataVersion,
         enrichment_status = 'enriched',
+        refresh_requested_at = NULL,
         enriched_at = @enrichedAt
     WHERE url = @url
   `);
   const selectAll = db.prepare(`
-    SELECT id, url, title, categories, ingredients, normalized_ingredients, cook_time, servings, image, metadata_version, enrichment_status, fetched_at, enriched_at
+    SELECT id, url, title, categories, ingredients, normalized_ingredients, cook_time, servings, image, metadata_version, enrichment_status, refresh_requested_at, fetched_at, enriched_at
     FROM recipes
     ORDER BY title ASC
   `);
@@ -61,11 +64,20 @@ export function createRecipeStore(dbPath) {
     FROM recipes
     WHERE enrichment_status != 'enriched'
        OR metadata_version < @metadataVersion
+       OR (
+         refresh_requested_at IS NOT NULL
+         AND (enriched_at IS NULL OR refresh_requested_at >= enriched_at)
+       )
     ORDER BY id ASC
   `);
   const markVersion = db.prepare(`
     UPDATE recipes
     SET metadata_version = @metadataVersion
+    WHERE url = @url
+  `);
+  const markRefreshRequested = db.prepare(`
+    UPDATE recipes
+    SET refresh_requested_at = @refreshRequestedAt
     WHERE url = @url
   `);
 
@@ -110,6 +122,15 @@ export function createRecipeStore(dbPath) {
     markMetadataVersion(url, metadataVersion) {
       markVersion.run({ url, metadataVersion });
     },
+    markRefreshRequested(urls = []) {
+      const tx = db.transaction((values) => {
+        const refreshRequestedAt = new Date().toISOString();
+        for (const url of values) {
+          markRefreshRequested.run({ url, refreshRequestedAt });
+        }
+      });
+      tx(urls);
+    },
     close() {
       db.close();
     }
@@ -136,6 +157,7 @@ function mapRow(row) {
     image: row.image ?? null,
     metadataVersion: row.metadata_version,
     enrichmentStatus: row.enrichment_status,
+    refreshRequestedAt: row.refresh_requested_at,
     fetchedAt: row.fetched_at,
     enrichedAt: row.enriched_at
   };

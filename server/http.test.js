@@ -1,10 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import supertest from "supertest";
-import { createApp, createRecipesHandler, createStatusHandler } from "./http.js";
+import {
+  createApp,
+  createRecipesHandler,
+  createRefreshHandler,
+  createStatusHandler
+} from "./http.js";
 
 function makeService(overrides = {}) {
   return {
     refreshRecipes: vi.fn().mockResolvedValue({ usedCache: false, total: 0 }),
+    requestRecipeRefresh: vi
+      .fn()
+      .mockResolvedValue({ usedCache: false, total: 0, enriched: 0 }),
     enrichPendingRecipes: vi.fn().mockResolvedValue(undefined),
     listRecipes: vi.fn().mockReturnValue({ usedCache: false, total: 0, enriched: 0, recipes: [] }),
     getStatus: vi.fn().mockReturnValue({ usedCache: false, total: 0, enriched: 0 }),
@@ -121,6 +129,20 @@ describe("http api", () => {
     });
   });
 
+  it("passes force=true to refresh when status query includes force flag", async () => {
+    const service = {
+      enrichPendingRecipes: vi.fn().mockResolvedValue(undefined),
+      refreshRecipes: vi.fn().mockResolvedValue(undefined),
+      getStatus: vi.fn().mockReturnValue({ usedCache: false, total: 1, enriched: 0 })
+    };
+
+    const json = vi.fn();
+    createStatusHandler(service)({ query: { force: "1" } }, { json });
+    await Promise.resolve();
+
+    expect(service.refreshRecipes).toHaveBeenCalledWith({ force: true });
+  });
+
   it("status handler triggers a background refresh", async () => {
     const service = {
       enrichPendingRecipes: vi.fn().mockResolvedValue(undefined),
@@ -132,6 +154,46 @@ describe("http api", () => {
     createStatusHandler(service)({}, { json });
     await Promise.resolve(); // flush microtask queue
 
-    expect(service.refreshRecipes).toHaveBeenCalled();
+    expect(service.refreshRecipes).toHaveBeenCalledWith({ force: false });
+  });
+
+  it("refresh handler accepts selected URLs and triggers targeted refresh", async () => {
+    const service = {
+      refreshRecipes: vi.fn().mockResolvedValue(undefined),
+      requestRecipeRefresh: vi
+        .fn()
+        .mockResolvedValue({ usedCache: false, total: 3, enriched: 1 }),
+      enrichPendingRecipes: vi.fn().mockResolvedValue(undefined)
+    };
+
+    const json = vi.fn();
+    const next = vi.fn();
+    await createRefreshHandler(service)(
+      {
+        body: {
+          force: true,
+          urls: ["https://www.riverford.co.uk/recipes/a", 123, null]
+        }
+      },
+      { json },
+      next
+    );
+    await Promise.resolve();
+
+    expect(service.refreshRecipes).toHaveBeenCalledWith({ force: true });
+    expect(service.requestRecipeRefresh).toHaveBeenCalledWith({
+      force: true,
+      urls: ["https://www.riverford.co.uk/recipes/a"]
+    });
+    expect(
+      service.refreshRecipes.mock.invocationCallOrder[0]
+    ).toBeLessThan(service.requestRecipeRefresh.mock.invocationCallOrder[0]);
+    expect(service.enrichPendingRecipes).toHaveBeenCalled();
+    expect(json).toHaveBeenCalledWith({
+      usedCache: false,
+      total: 3,
+      enriched: 1
+    });
+    expect(next).not.toHaveBeenCalled();
   });
 });

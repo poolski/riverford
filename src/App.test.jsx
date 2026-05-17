@@ -1,14 +1,21 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
-import { App } from "./App.jsx";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  App,
+  getInitialVisibleCount,
+  getNextVisibleCount,
+  loadSearchState,
+  saveSearchState,
+  summarizeIngredients
+} from "./App.jsx";
 import {
   normalizeIngredient,
   normalizeRecipeIngredients
 } from "../server/ingredients.js";
 
 function mockFetch(payload) {
-  global.fetch = vi.fn().mockImplementation(async (url) => ({
+  global.fetch = vi.fn().mockImplementation(async (url, options) => ({
     ok: true,
     json: async () =>
       url.startsWith("/api/recipes/status")
@@ -17,6 +24,12 @@ function mockFetch(payload) {
             total: payload.total,
             enriched: payload.enriched
           }
+        : url.startsWith("/api/recipes/refresh")
+          ? {
+              usedCache: payload.usedCache,
+              total: payload.total,
+              enriched: payload.enriched
+            }
         : filterPayload(payload, url)
   }));
 }
@@ -28,7 +41,8 @@ function filterPayload(payload, url) {
     .split(",")
     .filter(Boolean)
     .map((t) => t.trim().toLowerCase())
-    .map(normalizeIngredient);
+    .map(normalizeIngredient)
+    .map(normalizeMatchTerm);
 
   const recipes = payload.recipes
     .map((recipe) => {
@@ -37,7 +51,7 @@ function filterPayload(payload, url) {
       );
       const matchedIngredients = terms.filter((term) =>
         normalizedIngredients.some(
-          (ri) => ri.startsWith(term) || term.startsWith(ri)
+          (ri) => ingredientMatchesTerm(ri, term)
         )
       );
       return {
@@ -46,7 +60,7 @@ function filterPayload(payload, url) {
         matchedIngredients,
         missingIngredients: normalizedIngredients.filter(
           (ri) =>
-            !terms.some((term) => ri.startsWith(term) || term.startsWith(ri))
+            !terms.some((term) => ingredientMatchesTerm(ri, term))
         ),
         matchCount: matchedIngredients.length
       };
@@ -57,7 +71,7 @@ function filterPayload(payload, url) {
             (term) =>
               recipe.title.toLowerCase().includes(term) ||
               recipe.normalizedIngredients.some(
-                (ri) => ri.startsWith(term) || term.startsWith(ri)
+                (ri) => ingredientMatchesTerm(ri, term)
               )
           )
         : true
@@ -74,12 +88,94 @@ function filterPayload(payload, url) {
   return { ...payload, recipes };
 }
 
+function normalizeMatchTerm(value = "") {
+  return /\bstock\b/.test(value) ? "stock" : value;
+}
+
+function ingredientMatchesTerm(recipeIngredient, term) {
+  const normalizedRecipeIngredient = normalizeMatchTerm(recipeIngredient);
+  return (
+    normalizedRecipeIngredient.startsWith(term) ||
+    term.startsWith(normalizedRecipeIngredient)
+  );
+}
+
 async function searchFor(term) {
   const input = await screen.findByRole("textbox", { name: /search/i });
   await userEvent.type(input, `${term}{enter}`);
 }
 
 describe("App", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("summarizes long ingredient lists with a compact tail count", () => {
+    expect(summarizeIngredients(["carrot", "onion", "celery", "thyme"])).toBe(
+      "carrot, onion +2 more"
+    );
+  });
+
+  it("keeps short ingredient lists unchanged", () => {
+    expect(summarizeIngredients(["carrot"])).toBe("carrot");
+    expect(summarizeIngredients(["carrot", "onion"])).toBe("carrot, onion");
+  });
+
+  it("shows all cards immediately when there are 20 or fewer", () => {
+    expect(getInitialVisibleCount(0)).toBe(0);
+    expect(getInitialVisibleCount(5)).toBe(5);
+    expect(getInitialVisibleCount(20)).toBe(20);
+  });
+
+  it("shows only the first 20 cards initially when there are more than 20", () => {
+    expect(getInitialVisibleCount(21)).toBe(20);
+    expect(getInitialVisibleCount(100)).toBe(20);
+  });
+
+  it("increases visible cards by 20 without exceeding total", () => {
+    expect(getNextVisibleCount(20, 100)).toBe(40);
+    expect(getNextVisibleCount(40, 100)).toBe(60);
+    expect(getNextVisibleCount(90, 100)).toBe(100);
+    expect(getNextVisibleCount(100, 100)).toBe(100);
+  });
+
+  it("persists and restores search state from local storage", () => {
+    window.localStorage.clear();
+    saveSearchState({
+      chips: ["chicken", "leek"],
+      filters: {
+        category: "Soup",
+        servings: "3-4",
+        cookTime: "<30",
+        sort: "title"
+      }
+    });
+
+    expect(loadSearchState()).toEqual({
+      chips: ["chicken", "leek"],
+      filters: {
+        category: "Soup",
+        servings: "3-4",
+        cookTime: "<30",
+        sort: "title"
+      }
+    });
+  });
+
+  it("falls back safely when persisted search state is malformed", () => {
+    window.localStorage.setItem("riverford.searchState.test.v1", "{oops");
+
+    expect(loadSearchState()).toEqual({
+      chips: [],
+      filters: {
+        category: "All",
+        servings: "All",
+        cookTime: "All",
+        sort: "relevance"
+      }
+    });
+  });
+
   it("loads only status initially and does not render recipes before a search", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -92,7 +188,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText(/2 recipes ready/i)).toBeInTheDocument();
+    expect(await screen.findByText(/2 total/i)).toBeInTheDocument();
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/recipes/status",
       expect.any(Object)
@@ -146,7 +242,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText(/2 recipes ready/i);
+    await screen.findByText(/2 total/i);
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
@@ -172,8 +268,20 @@ describe("App", () => {
 
     render(<App />);
 
-    await screen.findByText(/2 recipes ready/i);
+    await screen.findByText(/2 total/i);
     expect(screen.queryByText(/enriched/i)).not.toBeInTheDocument();
+  });
+
+  it("hides the progress bar once enrichment is complete", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ usedCache: false, total: 2, enriched: 2 })
+    });
+
+    render(<App />);
+
+    await screen.findByText(/2 total/i);
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("re-polls within 1 second when total is 0, instead of waiting 3 seconds", async () => {
@@ -188,10 +296,10 @@ describe("App", () => {
     }));
 
     render(<App />);
-    await screen.findByText(/0 recipes/i);
+    await screen.findByText(/0 total/i);
 
     // With a 500ms fast-poll interval the second call should arrive well within 1s
-    await screen.findByText(/2 recipes/i, { timeout: 1000 });
+    await screen.findByText(/2 total/i, { timeout: 1000 });
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
@@ -287,7 +395,7 @@ describe("App", () => {
     await screen.findByText("Aglio Olio");
     await screen.findByText("Poached Chicken");
 
-    await userEvent.click(screen.getByRole("button", { name: "Chicken" }));
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "Chicken");
 
     await waitFor(() => {
       expect(screen.queryByText("Aglio Olio")).not.toBeInTheDocument();
@@ -331,7 +439,7 @@ describe("App", () => {
       });
 
     render(<App />);
-    await screen.findByText(/2 recipes ready/i);
+    await screen.findByText(/2 total/i);
 
     const input = screen.getByRole("textbox", { name: /search/i });
     await userEvent.type(input, "chicken");
@@ -487,7 +595,7 @@ describe("App", () => {
     await searchFor("chicken");
     await screen.findByText("Chicken Soup");
 
-    await userEvent.click(screen.getByRole("button", { name: "Soup" }));
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "Soup");
 
     await waitFor(() => {
       expect(screen.queryByText("Chicken Pie")).not.toBeInTheDocument();
@@ -576,7 +684,7 @@ describe("App", () => {
     });
 
     render(<App />);
-    await screen.findByText(/recipes ready/i);
+    await screen.findByText(/total/i);
 
     const input = screen.getByRole("textbox", { name: /search/i });
     await userEvent.type(input, "carrot{enter}");
@@ -611,7 +719,7 @@ describe("App", () => {
     });
 
     render(<App />);
-    await screen.findByText(/recipes ready/i);
+    await screen.findByText(/total/i);
 
     await userEvent.type(
       screen.getByRole("textbox", { name: /search/i }),
@@ -642,7 +750,7 @@ describe("App", () => {
     });
 
     render(<App />);
-    await screen.findByText(/recipes ready/i);
+    await screen.findByText(/total/i);
 
     const input = screen.getByRole("textbox", { name: /search/i });
     await userEvent.type(input, "tomatoes, soup{enter}");
@@ -680,7 +788,7 @@ describe("App", () => {
     expect(
       await screen.findByText(/you have 2 of 3 ingredients/i)
     ).toBeInTheDocument();
-    expect(screen.getByText(/missing: stock/i)).toBeInTheDocument();
+    expect(screen.getByText(/other ingredients: stock/i)).toBeInTheDocument();
   });
 
   it("shows cook time and serving count when available", async () => {

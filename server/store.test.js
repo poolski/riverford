@@ -98,4 +98,33 @@ describe("recipe store", () => {
     expect(store.listPendingRecipeUrls()).toEqual([]);
     store.close();
   });
+
+  it("marks selected recipes for refresh and returns them as pending", () => {
+    const store = createRecipeStore(dbPath);
+    store.upsertRecipes([
+      {
+        url: "https://www.riverford.co.uk/recipes/a",
+        title: "Recipe A"
+      },
+      {
+        url: "https://www.riverford.co.uk/recipes/b",
+        title: "Recipe B"
+      }
+    ]);
+    store.updateMetadata("https://www.riverford.co.uk/recipes/a", {
+      categories: ["Veg"],
+      ingredients: ["carrot"]
+    });
+    store.updateMetadata("https://www.riverford.co.uk/recipes/b", {
+      categories: ["Veg"],
+      ingredients: ["leek"]
+    });
+
+    store.markRefreshRequested(["https://www.riverford.co.uk/recipes/b"]);
+
+    expect(store.listPendingRecipeUrls()).toEqual([
+      "https://www.riverford.co.uk/recipes/b"
+    ]);
+    store.close();
+  });
 });

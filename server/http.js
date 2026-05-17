@@ -3,6 +3,7 @@ import express from "express";
 
 export function createApp(service, { staticDir } = {}) {
   const app = express();
+  app.use(express.json());
 
   if (!staticDir) {
     // Dev: allow cross-origin requests from the Vite dev server.
@@ -11,6 +12,7 @@ export function createApp(service, { staticDir } = {}) {
 
   app.get("/api/recipes", createRecipesHandler(service));
   app.get("/api/recipes/status", createStatusHandler(service));
+  app.post("/api/recipes/refresh", createRefreshHandler(service));
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
   if (staticDir) {
@@ -31,9 +33,10 @@ export function createApp(service, { staticDir } = {}) {
 }
 
 export function createStatusHandler(service) {
-  return (_request, response) => {
+  return (request, response) => {
+    const force = parseForceParam(request.query?.force);
     queueMicrotask(() => {
-      void service.refreshRecipes();
+      void service.refreshRecipes({ force });
       void service.enrichPendingRecipes();
     });
     response.json(service.getStatus());
@@ -43,12 +46,32 @@ export function createStatusHandler(service) {
 export function createRecipesHandler(service) {
   return async (request, response, next) => {
     try {
-      await service.refreshRecipes();
+      const force = parseForceParam(request.query?.force);
+      await service.refreshRecipes({ force });
       const payload = service.listRecipes(parseRecipeFilters(request));
       queueMicrotask(() => {
         void service.enrichPendingRecipes();
       });
       response.json(payload);
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+export function createRefreshHandler(service) {
+  return async (request, response, next) => {
+    try {
+      const force = parseForceParam(request.body?.force);
+      const urls = Array.isArray(request.body?.urls)
+        ? request.body.urls.filter((url) => typeof url === "string")
+        : [];
+      await service.refreshRecipes({ force });
+      const status = await service.requestRecipeRefresh({ urls, force });
+      queueMicrotask(() => {
+        void service.enrichPendingRecipes();
+      });
+      response.json(status);
     } catch (err) {
       next(err);
     }
@@ -65,4 +88,10 @@ function parseRecipeFilters(request) {
       : [],
     category: request.query?.category
   };
+}
+
+function parseForceParam(value) {
+  if (value === undefined) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
 }
