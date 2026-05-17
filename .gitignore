@@ -1,0 +1,6 @@
+node_modules
+dist
+.DS_Store
+data/*.sqlite
+.npm-cache
+config.json
