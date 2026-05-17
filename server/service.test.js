@@ -264,7 +264,7 @@ describe("recipe service", () => {
       expect.objectContaining({
         cookTime: "PT20M",
         servings: "2",
-        metadataVersion: 3
+        metadataVersion: 4
       })
     );
     store.close();

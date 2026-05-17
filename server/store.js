@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { normalizeRecipeIngredients } from "./ingredients.js";
 
 export function createRecipeStore(dbPath) {
-  const CURRENT_METADATA_VERSION = 3;
+  const CURRENT_METADATA_VERSION = 4;
   mkdirSync(dirname(dbPath), { recursive: true });
   const db = new Database(dbPath);
 
@@ -28,6 +28,7 @@ export function createRecipeStore(dbPath) {
   ensureColumn(db, "recipes", "servings", "TEXT");
   ensureColumn(db, "recipes", "metadata_version", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "recipes", "normalized_ingredients", "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn(db, "recipes", "image", "TEXT");
 
   const insert = db.prepare(`
     INSERT INTO recipes (url, title, fetched_at)
@@ -43,13 +44,14 @@ export function createRecipeStore(dbPath) {
         normalized_ingredients = @normalizedIngredients,
         cook_time = @cookTime,
         servings = @servings,
+        image = @image,
         metadata_version = @metadataVersion,
         enrichment_status = 'enriched',
         enriched_at = @enrichedAt
     WHERE url = @url
   `);
   const selectAll = db.prepare(`
-    SELECT id, url, title, categories, ingredients, normalized_ingredients, cook_time, servings, metadata_version, enrichment_status, fetched_at, enriched_at
+    SELECT id, url, title, categories, ingredients, normalized_ingredients, cook_time, servings, image, metadata_version, enrichment_status, fetched_at, enriched_at
     FROM recipes
     ORDER BY title ASC
   `);
@@ -90,6 +92,7 @@ export function createRecipeStore(dbPath) {
         ),
         cookTime: metadata.cookTime ?? null,
         servings: metadata.servings ?? null,
+        image: metadata.image ?? null,
         metadataVersion: CURRENT_METADATA_VERSION,
         enrichedAt: new Date().toISOString()
       });
@@ -128,6 +131,7 @@ function mapRow(row) {
     normalizedIngredients: JSON.parse(row.normalized_ingredients),
     cookTime: row.cook_time,
     servings: row.servings,
+    image: row.image ?? null,
     metadataVersion: row.metadata_version,
     enrichmentStatus: row.enrichment_status,
     fetchedAt: row.fetched_at,

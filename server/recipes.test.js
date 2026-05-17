@@ -50,7 +50,8 @@ describe("extractRecipeMetadata", () => {
       categories: ["Chicken", "Main"],
       ingredients: ["1 chicken", "2 carrots"],
       cookTime: null,
-      servings: null
+      servings: null,
+      image: null
     });
   });
 
@@ -62,6 +63,50 @@ describe("extractRecipeMetadata", () => {
     `;
 
     expect(extractRecipeMetadata(html).categories).toEqual(["Quick ideas"]);
+  });
+
+  it("extracts an image URL when the image property is a string", () => {
+    const html = `
+      <script type="application/ld+json">
+        {"@type":"Recipe","image":"https://cdn.riverford.co.uk/aglio.jpg"}
+      </script>
+    `;
+
+    expect(extractRecipeMetadata(html).image).toBe(
+      "https://cdn.riverford.co.uk/aglio.jpg"
+    );
+  });
+
+  it("extracts an image URL when the image property is an ImageObject", () => {
+    const html = `
+      <script type="application/ld+json">
+        {"@type":"Recipe","image":{"@type":"ImageObject","url":"https://cdn.riverford.co.uk/aglio.jpg"}}
+      </script>
+    `;
+
+    expect(extractRecipeMetadata(html).image).toBe(
+      "https://cdn.riverford.co.uk/aglio.jpg"
+    );
+  });
+
+  it("extracts the first image when the image property is an array", () => {
+    const html = `
+      <script type="application/ld+json">
+        {"@type":"Recipe","image":["https://cdn.riverford.co.uk/aglio-1.jpg","https://cdn.riverford.co.uk/aglio-2.jpg"]}
+      </script>
+    `;
+
+    expect(extractRecipeMetadata(html).image).toBe(
+      "https://cdn.riverford.co.uk/aglio-1.jpg"
+    );
+  });
+
+  it("returns null image when no image is present", () => {
+    const html = `
+      <script type="application/ld+json">{"@type":"Recipe"}</script>
+    `;
+
+    expect(extractRecipeMetadata(html).image).toBeNull();
   });
 
   it("reads cook time and servings from recipe JSON-LD", () => {
@@ -79,7 +124,8 @@ describe("extractRecipeMetadata", () => {
       categories: [],
       ingredients: [],
       cookTime: "PT45M",
-      servings: "4"
+      servings: "4",
+      image: null
     });
   });
 });

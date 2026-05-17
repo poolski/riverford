@@ -1,3 +1,11 @@
+function extractImageUrl(image) {
+  const candidate = Array.isArray(image) ? image[0] : image;
+  if (!candidate) return null;
+  if (typeof candidate === "string") return candidate;
+  if (typeof candidate?.url === "string") return candidate.url;
+  return null;
+}
+
 export function parseSitemap(xml) {
   return [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => match[1]);
 }
@@ -29,12 +37,13 @@ export function extractRecipeMetadata(html) {
           ? recipe.recipeIngredient.flat()
           : [],
         cookTime: recipe.cookTime ?? null,
-        servings: recipe.recipeYield ?? null
+        servings: recipe.recipeYield ?? null,
+        image: extractImageUrl(recipe.image)
       };
     } catch {
       continue;
     }
   }
 
-  return { categories: [], ingredients: [], cookTime: null, servings: null };
+  return { categories: [], ingredients: [], cookTime: null, servings: null, image: null };
 }

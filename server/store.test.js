@@ -63,6 +63,23 @@ describe("recipe store", () => {
     store.close();
   });
 
+  it("persists and returns the image URL through updateMetadata", () => {
+    const store = createRecipeStore(dbPath);
+    store.upsertRecipes([
+      { url: "https://www.riverford.co.uk/recipes/aglio-olio", title: "Aglio Olio" }
+    ]);
+    store.updateMetadata("https://www.riverford.co.uk/recipes/aglio-olio", {
+      categories: [],
+      ingredients: [],
+      image: "https://cdn.riverford.co.uk/aglio.jpg"
+    });
+
+    expect(store.listRecipes()[0]).toMatchObject({
+      image: "https://cdn.riverford.co.uk/aglio.jpg"
+    });
+    store.close();
+  });
+
   it("stops backfilling once the current metadata version has been recorded", () => {
     const store = createRecipeStore(dbPath);
     store.upsertRecipes([
