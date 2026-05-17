@@ -31,7 +31,10 @@ export async function fetchText(url, timeoutMs = 10000) {
 }
 
 const distDir = join(import.meta.dirname, "../dist");
-const staticDir = existsSync(distDir) ? distDir : undefined;
+const staticDir =
+  process.env.NODE_ENV !== "development" && existsSync(distDir)
+    ? distDir
+    : undefined;
 
 const service = createRecipeService({ store, fetchText });
 const app = createApp(service, { staticDir });
