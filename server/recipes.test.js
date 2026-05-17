@@ -47,6 +47,7 @@ describe("extractRecipeMetadata", () => {
     `;
 
     expect(extractRecipeMetadata(html)).toEqual({
+      name: null,
       categories: ["Chicken", "Main"],
       ingredients: ["1 chicken", "2 carrots"],
       cookTime: null,
@@ -109,6 +110,24 @@ describe("extractRecipeMetadata", () => {
     expect(extractRecipeMetadata(html).image).toBeNull();
   });
 
+  it("extracts the recipe name from JSON-LD", () => {
+    const html = `
+      <script type="application/ld+json">
+        {"@type":"Recipe","name":"Aglio e Olio"}
+      </script>
+    `;
+
+    expect(extractRecipeMetadata(html).name).toBe("Aglio e Olio");
+  });
+
+  it("returns null name when no name is present", () => {
+    const html = `
+      <script type="application/ld+json">{"@type":"Recipe"}</script>
+    `;
+
+    expect(extractRecipeMetadata(html).name).toBeNull();
+  });
+
   it("reads cook time and servings from recipe JSON-LD", () => {
     const html = `
       <script type="application/ld+json">
@@ -121,6 +140,7 @@ describe("extractRecipeMetadata", () => {
     `;
 
     expect(extractRecipeMetadata(html)).toEqual({
+      name: null,
       categories: [],
       ingredients: [],
       cookTime: "PT45M",

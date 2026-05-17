@@ -202,24 +202,11 @@ export function App() {
                   <p className="empty-state">No recipes match that search.</p>
                 ) : null}
                 {visibleRecipes.map((recipe) => (
-                  <article className="recipe-card" key={recipe.id}>
-                    {recipe.image ? (
-                      <a
-                        className="recipe-image-link"
-                        href={recipe.url}
-                        rel="noreferrer"
-                        target="_blank"
-                        tabIndex={-1}
-                        aria-hidden="true"
-                      >
-                        <img
-                          alt=""
-                          className="recipe-image"
-                          loading="lazy"
-                          src={recipe.image}
-                        />
-                      </a>
-                    ) : null}
+                  <article
+                    className={`recipe-card${recipe.image ? " has-image" : ""}`}
+                    key={recipe.id}
+                    style={recipe.image ? { backgroundImage: `url(${recipe.image})` } : undefined}
+                  >
                     <div className="recipe-card-body">
                     <h2>
                       <a href={recipe.url} rel="noreferrer" target="_blank">

@@ -168,6 +168,27 @@ describe("recipe service", () => {
     store.close();
   });
 
+  it("updates the recipe title from the JSON-LD name field during enrichment", async () => {
+    const store = createRecipeStore(dbPath);
+    store.upsertRecipes([
+      {
+        url: "https://www.riverford.co.uk/recipes/aglio-olio",
+        title: "Aglio Olio"
+      }
+    ]);
+    const fetchText = vi.fn().mockResolvedValue(`
+      <script type="application/ld+json">
+        {"@type":"Recipe","name":"Aglio e Olio with Parsley","recipeCategory":["Veg"]}
+      </script>
+    `);
+    const service = createRecipeService({ store, fetchText });
+
+    await service.enrichPendingRecipes();
+
+    expect(service.listRecipes().recipes[0].title).toBe("Aglio e Olio with Parsley");
+    store.close();
+  });
+
   it("continues enriching after a recipe fetch times out", async () => {
     const store = createRecipeStore(dbPath);
     store.upsertRecipes([

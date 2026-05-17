@@ -39,7 +39,8 @@ export function createRecipeStore(dbPath) {
   `);
   const updateMetadata = db.prepare(`
     UPDATE recipes
-    SET categories = @categories,
+    SET title = COALESCE(@title, title),
+        categories = @categories,
         ingredients = @ingredients,
         normalized_ingredients = @normalizedIngredients,
         cook_time = @cookTime,
@@ -84,6 +85,7 @@ export function createRecipeStore(dbPath) {
     updateMetadata(url, metadata) {
       updateMetadata.run({
         url,
+        title: metadata.name ?? null,
         categories: JSON.stringify(metadata.categories ?? []),
         ingredients: JSON.stringify(metadata.ingredients ?? []),
         normalizedIngredients: JSON.stringify(

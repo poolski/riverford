@@ -30,6 +30,7 @@ export function extractRecipeMetadata(html) {
       if (!recipe) continue;
 
       return {
+        name: typeof recipe.name === "string" ? recipe.name : null,
         categories: Array.isArray(recipe.recipeCategory)
           ? [...new Set(recipe.recipeCategory)]
           : [],
@@ -45,5 +46,5 @@ export function extractRecipeMetadata(html) {
     }
   }
 
-  return { categories: [], ingredients: [], cookTime: null, servings: null, image: null };
+  return { name: null, categories: [], ingredients: [], cookTime: null, servings: null, image: null };
 }
