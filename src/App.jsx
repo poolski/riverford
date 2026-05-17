@@ -7,6 +7,7 @@ export function App() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [chips, setChips] = useState([]);
   const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const abortControllerRef = useRef(null);
 
   useEffect(() => {
@@ -110,12 +111,30 @@ export function App() {
     });
   }
 
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      const response = await fetch("/api/recipes/status");
+      if (response.ok) {
+        const payload = await response.json();
+        setData((current) => ({ ...payload, recipes: current?.recipes ?? [] }));
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="hero">
         <h1>Find a meal from the recipe archive</h1>
         {data ? (
-          <p className="status">{data.total} recipes ready</p>
+          <RecipeStatus
+            total={data.total}
+            enriched={data.enriched}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+          />
         ) : (
           <p className="status">Loading recipes…</p>
         )}
@@ -232,6 +251,51 @@ export function App() {
         </>
       ) : null}
     </main>
+  );
+}
+
+function RecipeStatus({ total, enriched, refreshing, onRefresh }) {
+  const complete = enriched >= total && total > 0;
+  const busy = refreshing || (total > 0 && !complete);
+  return (
+    <div className="recipe-status">
+      <div className="status-row">
+        <p className="status">
+          {complete
+            ? `${total.toLocaleString()} recipes ready`
+            : `${total.toLocaleString()} recipes`}
+        </p>
+        {busy && (
+          <span className="spinner" role="status" aria-label="Loading" />
+        )}
+        {total > 0 && (
+          <button
+            className="refresh-btn"
+            onClick={onRefresh}
+            disabled={refreshing}
+            type="button"
+            aria-label="Refresh"
+          >
+            ↻
+          </button>
+        )}
+      </div>
+      {total > 0 && (
+        <>
+          <progress
+            className="enrichment-bar"
+            value={enriched}
+            max={total}
+            aria-label={`${enriched} of ${total} recipes enriched`}
+          />
+          {!complete && (
+            <p className="enrichment-label">
+              {enriched.toLocaleString()} of {total.toLocaleString()} enriched
+            </p>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

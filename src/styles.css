@@ -40,9 +40,90 @@ h1 {
   letter-spacing: -0.045em;
 }
 
+.recipe-status {
+  margin-top: 14px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .status {
-  margin: 14px 0 0;
+  margin: 0;
   color: #62705f;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(98, 112, 95, 0.25);
+  border-top-color: #62705f;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.refresh-btn {
+  border: 0;
+  background: none;
+  padding: 2px 4px;
+  color: #62705f;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.refresh-btn:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+
+.enrichment-bar {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: 4px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(98, 112, 95, 0.14);
+  overflow: hidden;
+  appearance: none;
+}
+
+.enrichment-bar::-webkit-progress-bar {
+  background: rgba(98, 112, 95, 0.14);
+  border-radius: 999px;
+}
+
+.enrichment-bar::-webkit-progress-value {
+  background: #62705f;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.enrichment-bar::-moz-progress-bar {
+  background: #62705f;
+  border-radius: 999px;
+}
+
+.enrichment-label {
+  margin: 5px 0 0;
+  color: #62705f;
+  font-size: 0.82rem;
 }
 
 .notice,

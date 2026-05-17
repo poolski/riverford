@@ -103,6 +103,79 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows enrichment progress bar while enrichment is in progress", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ usedCache: false, total: 100, enriched: 30 })
+    });
+
+    render(<App />);
+
+    const bar = await screen.findByRole("progressbar");
+    expect(bar).toHaveAttribute("value", "30");
+    expect(bar).toHaveAttribute("max", "100");
+  });
+
+  it("shows enriched count text while enrichment is in progress", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ usedCache: false, total: 100, enriched: 30 })
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText(/30 of 100 enriched/i)).toBeInTheDocument();
+  });
+
+  it("shows a spinner while enrichment is in progress", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ usedCache: false, total: 100, enriched: 30 })
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("status")).toBeInTheDocument();
+  });
+
+  it("hides the spinner once enrichment is complete", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ usedCache: false, total: 2, enriched: 2 })
+    });
+
+    render(<App />);
+
+    await screen.findByText(/2 recipes ready/i);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("shows a refresh button and triggers an immediate status poll when clicked", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ usedCache: false, total: 10, enriched: 5 })
+    });
+
+    render(<App />);
+    await screen.findByRole("progressbar");
+
+    const callsBefore = global.fetch.mock.calls.length;
+    await userEvent.click(screen.getByRole("button", { name: /refresh/i }));
+    expect(global.fetch.mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+
+  it("hides the enriched count text once enrichment is complete", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ usedCache: false, total: 2, enriched: 2 })
+    });
+
+    render(<App />);
+
+    await screen.findByText(/2 recipes ready/i);
+    expect(screen.queryByText(/enriched/i)).not.toBeInTheDocument();
+  });
+
   it("re-polls within 1 second when total is 0, instead of waiting 3 seconds", async () => {
     let calls = 0;
     global.fetch = vi.fn().mockImplementation(async () => ({
@@ -115,10 +188,10 @@ describe("App", () => {
     }));
 
     render(<App />);
-    await screen.findByText(/0 recipes ready/i);
+    await screen.findByText(/0 recipes/i);
 
     // With a 500ms fast-poll interval the second call should arrive well within 1s
-    await screen.findByText(/2 recipes ready/i, { timeout: 1000 });
+    await screen.findByText(/2 recipes/i, { timeout: 1000 });
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
