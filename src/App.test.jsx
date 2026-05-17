@@ -293,12 +293,12 @@ describe("App", () => {
     expect(screen.getAllByText("Quick ideas")).toHaveLength(2);
   });
 
-  it("does not start a new poll while a previous poll is still in flight", async () => {
+  it("does not start a second poll while the first is still in flight", async () => {
     vi.useFakeTimers();
     global.fetch = vi.fn(
       () =>
         new Promise(() => {
-          // deliberately unresolved
+          // deliberately unresolved — finally never runs, no next poll scheduled
         })
     );
 

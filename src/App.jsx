@@ -7,7 +7,6 @@ export function App() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [chips, setChips] = useState([]);
   const [error, setError] = useState("");
-  const inFlightRef = useRef(false);
   const abortControllerRef = useRef(null);
 
   useEffect(() => {
@@ -16,9 +15,6 @@ export function App() {
     let lastTotal = 0;
 
     async function loadStatus() {
-      if (inFlightRef.current) return;
-
-      inFlightRef.current = true;
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
@@ -41,7 +37,6 @@ export function App() {
           setError(loadError.message);
         }
       } finally {
-        inFlightRef.current = false;
         if (abortControllerRef.current === controller) {
           abortControllerRef.current = null;
         }
