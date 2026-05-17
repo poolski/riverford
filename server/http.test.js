@@ -44,6 +44,7 @@ describe("http api", () => {
   it("keeps status responses unfiltered even when query params are present", async () => {
     const service = {
       enrichPendingRecipes: vi.fn().mockResolvedValue(undefined),
+      refreshRecipes: vi.fn().mockResolvedValue(undefined),
       getStatus: vi.fn().mockReturnValue({
         usedCache: false,
         total: 2,
@@ -63,5 +64,19 @@ describe("http api", () => {
       total: 2,
       enriched: 1
     });
+  });
+
+  it("status handler triggers a background refresh", async () => {
+    const service = {
+      enrichPendingRecipes: vi.fn().mockResolvedValue(undefined),
+      refreshRecipes: vi.fn().mockResolvedValue(undefined),
+      getStatus: vi.fn().mockReturnValue({ usedCache: false, total: 1, enriched: 0 })
+    };
+
+    const json = vi.fn();
+    createStatusHandler(service)({}, { json });
+    await Promise.resolve(); // flush microtask queue
+
+    expect(service.refreshRecipes).toHaveBeenCalled();
   });
 });

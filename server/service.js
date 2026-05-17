@@ -9,13 +9,18 @@ import {
 } from "./ingredients.js";
 
 const SITEMAP_URL = "https://www.riverford.co.uk/recipes.xml";
+const REFRESH_TTL_MS = 5 * 60 * 1000;
 
 export function createRecipeService({ store, fetchText }) {
   let usedCache = false;
   let enrichmentPromise = null;
+  let refreshPromise = null;
+  let lastRefreshedAt = 0;
 
-  return {
-    async refreshRecipes() {
+  function doRefresh() {
+    if (refreshPromise) return refreshPromise;
+
+    refreshPromise = (async () => {
       try {
         const sitemap = await fetchText(SITEMAP_URL);
         const recipes = parseSitemap(sitemap).map((url) => ({
@@ -24,12 +29,39 @@ export function createRecipeService({ store, fetchText }) {
         }));
         store.upsertRecipes(recipes);
         usedCache = false;
+        lastRefreshedAt = Date.now();
         return { usedCache: false, total: recipes.length };
       } catch {
         const recipes = store.listRecipes();
         usedCache = recipes.length > 0;
+        lastRefreshedAt = Date.now();
         return { usedCache, total: recipes.length };
       }
+    })().finally(() => {
+      refreshPromise = null;
+    });
+
+    return refreshPromise;
+  }
+
+  return {
+    async refreshRecipes() {
+      const recipes = store.listRecipes();
+      const hasData = recipes.length > 0;
+      const isStale = Date.now() - lastRefreshedAt > REFRESH_TTL_MS;
+
+      if (hasData && !isStale) {
+        return { usedCache, total: recipes.length };
+      }
+
+      if (hasData) {
+        // Trigger background refresh; return current data without blocking.
+        doRefresh();
+        return { usedCache, total: recipes.length };
+      }
+
+      // Store empty — must wait for the sitemap before we can return anything.
+      return doRefresh();
     },
     listRecipes(filters = {}) {
       const recipes = filterRecipes(store.listRecipes(), filters);

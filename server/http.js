@@ -15,6 +15,7 @@ export function createApp(service) {
 export function createStatusHandler(service) {
   return (_request, response) => {
     queueMicrotask(() => {
+      void service.refreshRecipes();
       void service.enrichPendingRecipes();
     });
     response.json(service.getStatus());

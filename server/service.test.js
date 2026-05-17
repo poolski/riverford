@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 describe("recipe service", () => {
-  it("returns cached data when the live sitemap fetch fails", async () => {
+  it("returns store data immediately when store is populated, even if refresh is slow", async () => {
     const store = createRecipeStore(dbPath);
     store.upsertRecipes([
       {
@@ -18,22 +18,101 @@ describe("recipe service", () => {
         title: "Aglio Olio"
       }
     ]);
+    // fetchText hangs indefinitely — response must not wait for it
+    const fetchText = vi.fn(() => new Promise(() => {}));
+    const service = createRecipeService({ store, fetchText });
 
-    const service = createRecipeService({
-      store,
-      fetchText: vi.fn().mockRejectedValue(new Error("offline"))
-    });
+    const result = await service.refreshRecipes();
 
-    await expect(service.refreshRecipes()).resolves.toEqual({
-      usedCache: true,
-      total: 1
-    });
+    expect(result).toEqual({ usedCache: false, total: 1 });
+    store.close();
+  });
+
+  it("marks usedCache after background refresh detects site is unavailable", async () => {
+    const store = createRecipeStore(dbPath);
+    store.upsertRecipes([
+      {
+        url: "https://www.riverford.co.uk/recipes/aglio-olio",
+        title: "Aglio Olio"
+      }
+    ]);
+    let rejectFetch;
+    const fetchText = vi.fn(
+      () => new Promise((_, rej) => { rejectFetch = rej; })
+    );
+    const service = createRecipeService({ store, fetchText });
+
+    await service.refreshRecipes();
+    expect(service.getStatus()).toMatchObject({ usedCache: false });
+
+    rejectFetch(new Error("offline"));
+    await vi.waitFor(() => service.getStatus().usedCache === true);
+
     expect(service.listRecipes()).toEqual(
       expect.objectContaining({
         usedCache: true,
         recipes: [expect.objectContaining({ title: "Aglio Olio" })]
       })
     );
+    store.close();
+  });
+
+  it("does not re-fetch the sitemap within the refresh TTL", async () => {
+    const store = createRecipeStore(dbPath);
+    const fetchText = vi.fn().mockResolvedValue(`
+      <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+        <url><loc>https://www.riverford.co.uk/recipes/aglio-olio</loc></url>
+      </urlset>
+    `);
+    const service = createRecipeService({ store, fetchText });
+
+    await service.refreshRecipes();
+    await service.refreshRecipes();
+
+    expect(fetchText).toHaveBeenCalledTimes(1);
+    store.close();
+  });
+
+  it("re-fetches the sitemap after the TTL expires", async () => {
+    vi.useFakeTimers();
+    const store = createRecipeStore(dbPath);
+    const fetchText = vi.fn().mockResolvedValue(`
+      <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+        <url><loc>https://www.riverford.co.uk/recipes/aglio-olio</loc></url>
+      </urlset>
+    `);
+    const service = createRecipeService({ store, fetchText });
+
+    await service.refreshRecipes();
+    vi.advanceTimersByTime(6 * 60 * 1000); // past 5-minute TTL
+    await service.refreshRecipes();
+
+    expect(fetchText).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+    store.close();
+  });
+
+  it("deduplicates concurrent refreshRecipes calls", async () => {
+    const store = createRecipeStore(dbPath);
+    let resolveFetch;
+    const fetchText = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        })
+    );
+    const service = createRecipeService({ store, fetchText });
+
+    const first = service.refreshRecipes();
+    const second = service.refreshRecipes();
+
+    expect(fetchText).toHaveBeenCalledTimes(1);
+    resolveFetch(`
+      <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+        <url><loc>https://www.riverford.co.uk/recipes/aglio-olio</loc></url>
+      </urlset>
+    `);
+    await Promise.all([first, second]);
     store.close();
   });
 
