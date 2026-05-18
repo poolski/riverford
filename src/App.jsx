@@ -291,6 +291,15 @@ export function App() {
               {indexedTotal.toLocaleString()} total
             </p>
           ) : null}
+          {isSavedPage ? (
+            <button
+              type="button"
+              className="saved-page-return"
+              onClick={() => navigateTo("/")}
+            >
+              Back to recipes
+            </button>
+          ) : null}
           <button
             type="button"
             className={`saved-page-link${isSavedPage ? " active" : ""}`}

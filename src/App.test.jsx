@@ -577,6 +577,14 @@ describe("App", () => {
     expect(
       screen.getByRole("button", { name: /saved items/i })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /back to recipes/i })
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /back to recipes/i }));
+    expect(
+      await screen.findByRole("textbox", { name: /search recipes or ingredients/i })
+    ).toBeInTheDocument();
   });
 
   it("makes the recipe image a link to the recipe URL", async () => {
