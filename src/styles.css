@@ -167,7 +167,7 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 8px 0 0;
+  margin: 0;
   border: 1px solid rgba(255, 178, 142, 0.35);
   border-radius: 999px;
   background: rgba(255, 235, 223, 0.75);
