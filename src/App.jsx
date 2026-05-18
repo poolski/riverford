@@ -10,6 +10,7 @@ const SEARCH_STATE_STORAGE_KEY =
 export function App() {
   const batchSize = 20;
   const initialSearchState = loadSearchState();
+  const [currentPath, setCurrentPath] = useState(getCurrentPath());
   const [data, setData] = useState(null);
   const [indexedTotal, setIndexedTotal] = useState(null);
   const [enrichedTotal, setEnrichedTotal] = useState(null);
@@ -24,6 +25,19 @@ export function App() {
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
   const categoriesRef = useRef(null);
+  const isSavedPage = currentPath === "/saved";
+
+  useEffect(() => {
+    const onPopState = () => setCurrentPath(getCurrentPath());
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  function navigateTo(path) {
+    if (getCurrentPath() === path) return;
+    window.history.pushState({}, "", path);
+    setCurrentPath(path);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +91,9 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (chips.length === 0 && filters.category === "All") return;
+    const queryChips = isSavedPage ? [] : chips;
+    const queryCategory = isSavedPage ? "All" : filters.category;
+    if (!isSavedPage && queryChips.length === 0 && queryCategory === "All") return;
     let cancelled = false;
     const controller = new AbortController();
 
@@ -85,8 +101,8 @@ export function App() {
       try {
         const response = await fetch(
           buildRecipesUrl("/api/recipes", {
-            chips,
-            category: filters.category
+            chips: queryChips,
+            category: queryCategory
           }),
           { signal: controller.signal }
         );
@@ -110,7 +126,14 @@ export function App() {
       cancelled = true;
       controller.abort();
     };
-  }, [chips, filters.category]);
+  }, [chips, filters.category, isSavedPage]);
+
+  useEffect(() => {
+    if (!isSavedPage) return;
+    if (searchRef.current) {
+      searchRef.current.scrollIntoView({ block: "start" });
+    }
+  }, [isSavedPage]);
 
   const categories = useMemo(() => {
     const recipes = data?.recipes;
@@ -123,6 +146,10 @@ export function App() {
   const filteredRecipes = useMemo(
     () => applyClientFilters(visibleRecipes, filters),
     [visibleRecipes, filters]
+  );
+  const savedRecipes = useMemo(
+    () => visibleRecipes.filter((recipe) => savedRecipeIds.includes(recipe.id)),
+    [visibleRecipes, savedRecipeIds]
   );
   const progressiveLoadingEnabled = filteredRecipes.length > batchSize;
   const renderedRecipes = progressiveLoadingEnabled
@@ -167,6 +194,26 @@ export function App() {
 
   function removeChip(chip) {
     setChips((current) => current.filter((c) => c !== chip));
+  }
+
+  function jumpToSection(sectionRef, { focusInput = false } = {}) {
+    const scrollToSection = () => {
+      sectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+      if (focusInput) {
+        searchInputRef.current?.focus({ preventScroll: true });
+      }
+    };
+
+    if (currentPath === "/saved") {
+      navigateTo("/");
+      window.requestAnimationFrame(scrollToSection);
+      return;
+    }
+
+    scrollToSection();
   }
 
   async function toggleSavedRecipe(recipe) {
@@ -244,14 +291,31 @@ export function App() {
               {indexedTotal.toLocaleString()} total
             </p>
           ) : null}
+          <button
+            type="button"
+            className={`saved-page-link${isSavedPage ? " active" : ""}`}
+            onClick={() => navigateTo("/saved")}
+          >
+            Saved
+          </button>
         </div>
         <div className="hero-heading-row">
-          <h1>
-            <span className="hero-title-main">Find a meal</span>
-            <span className="hero-title-sub"> from the recipe archive</span>
-          </h1>
+          {isSavedPage ? (
+            <h1>Saved recipes</h1>
+          ) : (
+            <h1>
+              <span className="hero-title-main">Find a meal</span>
+              <span className="hero-title-sub"> from the recipe archive</span>
+            </h1>
+          )}
         </div>
-        {data ? (
+        {isSavedPage ? (
+          <p className="status">
+            {savedRecipes.length === 1
+              ? "1 saved recipe"
+              : `${savedRecipes.length.toLocaleString()} saved recipes`}
+          </p>
+        ) : data ? (
           <RecipeStatus
             total={indexedTotal ?? data.total}
             enriched={enrichedTotal ?? data.enriched}
@@ -275,59 +339,95 @@ export function App() {
 
       {data ? (
         <>
-          <UnifiedSearch
-            onAddChips={addChips}
-            sectionRef={searchRef}
-            inputRef={searchInputRef}
-          />
-
-          <QuickCategories
-            activeCategory={filters.category}
-            sectionRef={categoriesRef}
-            onSelectCategory={(category) =>
-              setFilters((current) => ({ ...current, category }))
-            }
-          />
-
-          {chips.length > 0 ? (
-            <div className="search-chips" aria-label="Search terms">
-              {chips.map((chip) => (
-                <button
-                  key={chip}
-                  onClick={() => removeChip(chip)}
-                  type="button"
-                  aria-label={`Remove ${chip}`}
-                >
-                  <span>{chip}</span>
-                  <span aria-hidden="true" className="chip-remove-mark">
-                    ×
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {chips.length === 0 && filters.category === "All" ? (
-            <section className="welcome-state">
-              <div className="welcome-mark" aria-hidden="true">
-                ✦
-              </div>
-              <div>
-                <h2>Search by recipe name or ingredient.</h2>
-                <p>
-                  Add a search term, or choose a quick category to browse.
-                </p>
-                <StarterSearches onPickSearch={addChips} />
-                <div className="welcome-steps" aria-hidden="true">
-                  <span>Type a term</span>
-                  <span>Press Enter</span>
-                  <span>See matches</span>
-                </div>
-              </div>
+          {isSavedPage ? (
+            <section className="saved-page">
+              {savedRecipes.length === 0 ? (
+                <section className="welcome-state saved-empty">
+                  <div className="welcome-mark" aria-hidden="true">
+                    ♥
+                  </div>
+                  <div>
+                    <h2>No saved recipes yet.</h2>
+                    <p>
+                      Save recipes from the main page and they’ll appear here.
+                    </p>
+                    <button
+                      type="button"
+                      className="saved-empty-cta"
+                      onClick={() => navigateTo("/")}
+                    >
+                      Browse recipes
+                    </button>
+                  </div>
+                </section>
+              ) : (
+                <section className="recipe-grid" aria-label="Saved recipes">
+                  {savedRecipes.map((recipe) => (
+                    <RecipeCard
+                      key={recipe.id}
+                      recipe={recipe}
+                      isSaved={true}
+                      onToggleSave={toggleSavedRecipe}
+                    />
+                  ))}
+                </section>
+              )}
             </section>
           ) : (
             <>
-              <section className="filters" aria-label="Recipe filters">
+              <UnifiedSearch
+                onAddChips={addChips}
+                sectionRef={searchRef}
+                inputRef={searchInputRef}
+              />
+
+              <QuickCategories
+                activeCategory={filters.category}
+                sectionRef={categoriesRef}
+                onSelectCategory={(category) =>
+                  setFilters((current) => ({ ...current, category }))
+                }
+              />
+
+              {chips.length > 0 ? (
+                <div className="search-chips" aria-label="Search terms">
+                  {chips.map((chip) => (
+                    <button
+                      key={chip}
+                      onClick={() => removeChip(chip)}
+                      type="button"
+                      aria-label={`Remove ${chip}`}
+                    >
+                      <span>{chip}</span>
+                      <span aria-hidden="true" className="chip-remove-mark">
+                        ×
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {chips.length === 0 && filters.category === "All" ? (
+                <section className="welcome-state">
+                  <div className="welcome-mark" aria-hidden="true">
+                    ✦
+                  </div>
+                  <div>
+                    <h2>Search by recipe name or ingredient.</h2>
+                    <p>
+                      Add a search term, or choose a quick category to browse.
+                    </p>
+                    <StarterSearches onPickSearch={addChips} />
+                    <div className="welcome-steps" aria-hidden="true">
+                      <span>Type a term</span>
+                      <span>Press Enter</span>
+                      <span>See matches</span>
+                    </div>
+                  </div>
+                </section>
+              ) : (
+                <>
+                  <section className="filters" aria-label="Recipe filters">
                 <label>
                   <span className="filter-label-title">
                     <TagMark />
@@ -408,96 +508,17 @@ export function App() {
                 </label>
               </section>
 
-              <section className="recipe-grid" aria-label="Recipes">
+                  <section className="recipe-grid" aria-label="Recipes">
                 {filteredRecipes.length === 0 ? (
                   <p className="empty-state">No recipes match that search.</p>
                 ) : null}
                 {renderedRecipes.map((recipe) => (
-                  <article
-                          className={`recipe-card${recipe.image ? " has-image" : ""}`}
+                  <RecipeCard
                     key={recipe.id}
-                    style={
-                      recipe.image
-                        ? { "--card-image": `url(${recipe.image})` }
-                        : undefined
-                    }
-                  >
-                    {recipe.image ? (
-                      <div
-                        className="recipe-card-media"
-                        aria-hidden="true"
-                        style={{ "--card-image": `url(${recipe.image})` }}
-                      />
-                    ) : (
-                      <div className="recipe-card-media recipe-card-media-fallback" aria-hidden="true">
-                        <span>{(recipe.title ?? "R").slice(0, 1)}</span>
-                      </div>
-                    )}
-                    <div className="recipe-card-body">
-                      <div className="recipe-card-topline">
-                        {recipe.cookTime || recipe.servings ? (
-                          <div className="recipe-meta">
-                            {recipe.cookTime ? (
-                              <span className="meta-pill">
-                                <span aria-hidden="true" className="meta-icon">
-                                  <ClockMark />
-                                </span>
-                                {formatCookTime(recipe.cookTime)}
-                              </span>
-                            ) : null}
-                            {recipe.servings ? (
-                              <span className="meta-pill">
-                                <span aria-hidden="true" className="meta-icon">
-                                  <PeopleMark />
-                                </span>
-                                Serves {recipe.servings}
-                              </span>
-                            ) : null}
-                          </div>
-                        ) : null}
-                        <button
-                          type="button"
-                          className={`bookmark-btn${savedRecipeIds.includes(recipe.id) ? " active" : ""}`}
-                          aria-label={`${savedRecipeIds.includes(recipe.id) ? "Remove saved recipe" : "Save"} ${recipe.title}`}
-                          aria-pressed={savedRecipeIds.includes(recipe.id) ? "true" : "false"}
-                          onClick={() => toggleSavedRecipe(recipe)}
-                        >
-                          <BookmarkMark />
-                        </button>
-                      </div>
-                      <h2>
-                        <a href={recipe.url} rel="noreferrer" target="_blank">
-                          {recipe.title}
-                        </a>
-                      </h2>
-                      <div className="tag-row">
-                        {recipe.categories.length > 0 ? (
-                          [...new Set(recipe.categories)].map((category) => (
-                            <span key={category}>{category}</span>
-                          ))
-                        ) : (
-                          <span className="muted">Loading recipe details…</span>
-                        )}
-                      </div>
-                      {recipe.matchCount ? (
-                        <div className="match-stack">
-                          <p className="matches">
-                            You have {recipe.matchCount} of{" "}
-                            {recipe.normalizedIngredients.length} ingredients
-                          </p>
-                          <p className="matches matched">
-                            Matched: {summarizeIngredients(recipe.matchedIngredients)}
-                          </p>
-                          {recipe.missingIngredients.length > 0 ? (
-                            <p className="matches missing">
-                              Other ingredients:{" "}
-                              {summarizeIngredients(recipe.missingIngredients)}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </div>
-                  </article>
+                    recipe={recipe}
+                    isSaved={savedRecipeIds.includes(recipe.id)}
+                    onToggleSave={toggleSavedRecipe}
+                  />
                 ))}
                 {progressiveLoadingEnabled &&
                 renderedRecipes.length < filteredRecipes.length ? (
@@ -507,25 +528,20 @@ export function App() {
                     ref={loadMoreRef}
                   />
                 ) : null}
-              </section>
-              <BottomActions
-                onSearchClick={() => {
-                  searchRef.current?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start"
-                  });
-                  searchInputRef.current?.focus({ preventScroll: true });
-                }}
-                onCategoriesClick={() => {
-                  categoriesRef.current?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start"
-                  });
-                }}
-              />
+                  </section>
+                </>
+              )}
             </>
           )}
         </>
+      ) : null}
+      {data ? (
+        <BottomActions
+          currentPath={currentPath}
+          navigateTo={navigateTo}
+          onSearchClick={() => jumpToSection(searchRef, { focusInput: true })}
+          onCategoriesClick={() => jumpToSection(categoriesRef)}
+        />
       ) : null}
     </main>
   );
@@ -712,7 +728,13 @@ function QuickCategories({ activeCategory, onSelectCategory, sectionRef }) {
   );
 }
 
-function BottomActions({ onSearchClick, onCategoriesClick }) {
+function BottomActions({
+  onSearchClick,
+  onCategoriesClick,
+  currentPath,
+  navigateTo
+}) {
+  const savedActive = currentPath === "/saved";
   return (
     <nav className="mobile-action-bar" aria-label="Quick actions">
       <button
@@ -733,8 +755,114 @@ function BottomActions({ onSearchClick, onCategoriesClick }) {
         <SparkMark />
         <span>Categories</span>
       </button>
+      <button
+        type="button"
+        className={`saved${savedActive ? " active" : ""}`}
+        onClick={() => navigateTo("/saved")}
+        aria-label="Saved items"
+        aria-pressed={savedActive ? "true" : "false"}
+      >
+        <HeartMark />
+        <span>Saved</span>
+      </button>
     </nav>
   );
+}
+
+function RecipeCard({ recipe, isSaved, onToggleSave }) {
+  return (
+    <article
+      className={`recipe-card${recipe.image ? " has-image" : ""}`}
+      style={recipe.image ? { "--card-image": `url(${recipe.image})` } : undefined}
+    >
+      <a
+        className="recipe-card-media-link"
+        href={recipe.url}
+        rel="noreferrer"
+        target="_blank"
+        aria-label={`${recipe.title} recipe image`}
+      >
+        {recipe.image ? (
+          <div
+            className="recipe-card-media"
+            aria-hidden="true"
+            style={{ "--card-image": `url(${recipe.image})` }}
+          />
+        ) : (
+          <div className="recipe-card-media recipe-card-media-fallback" aria-hidden="true">
+            <span>{(recipe.title ?? "R").slice(0, 1)}</span>
+          </div>
+        )}
+      </a>
+      <div className="recipe-card-body">
+        <div className="recipe-card-topline">
+          {recipe.cookTime || recipe.servings ? (
+            <div className="recipe-meta">
+              {recipe.cookTime ? (
+                <span className="meta-pill">
+                  <span aria-hidden="true" className="meta-icon">
+                    <ClockMark />
+                  </span>
+                  {formatCookTime(recipe.cookTime)}
+                </span>
+              ) : null}
+              {recipe.servings ? (
+                <span className="meta-pill">
+                  <span aria-hidden="true" className="meta-icon">
+                    <PeopleMark />
+                  </span>
+                  Serves {recipe.servings}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className={`bookmark-btn${isSaved ? " active" : ""}`}
+            aria-label={`${isSaved ? "Remove saved recipe" : "Save"} ${recipe.title}`}
+            aria-pressed={isSaved ? "true" : "false"}
+            onClick={() => onToggleSave(recipe)}
+          >
+            <BookmarkMark />
+          </button>
+        </div>
+        <h2>
+          <a href={recipe.url} rel="noreferrer" target="_blank">
+            {recipe.title}
+          </a>
+        </h2>
+        <div className="tag-row">
+          {recipe.categories.length > 0 ? (
+            [...new Set(recipe.categories)].map((category) => (
+              <span key={category}>{category}</span>
+            ))
+          ) : (
+            <span className="muted">Loading recipe details…</span>
+          )}
+        </div>
+        {recipe.matchCount ? (
+          <div className="match-stack">
+            <p className="matches">
+              You have {recipe.matchCount} of {recipe.normalizedIngredients.length} ingredients
+            </p>
+            <p className="matches matched">
+              Matched: {summarizeIngredients(recipe.matchedIngredients)}
+            </p>
+            {recipe.missingIngredients.length > 0 ? (
+              <p className="matches missing">
+                Other ingredients: {summarizeIngredients(recipe.missingIngredients)}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function getCurrentPath() {
+  if (typeof window === "undefined") return "/";
+  return window.location.pathname === "/saved" ? "/saved" : "/";
 }
 
 function LeafMark() {

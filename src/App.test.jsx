@@ -42,13 +42,15 @@ function mockFetch(payload) {
           ? {
               usedCache: payload.usedCache,
               total: payload.total,
-              enriched: payload.enriched
+              enriched: payload.enriched,
+              savedRecipeIds
             }
           : url.startsWith("/api/recipes/refresh")
             ? {
                 usedCache: payload.usedCache,
                 total: payload.total,
-                enriched: payload.enriched
+                enriched: payload.enriched,
+                savedRecipeIds
               }
             : filterPayload(payload, url)
     };
@@ -129,6 +131,7 @@ async function searchFor(term) {
 describe("App", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.history.pushState({}, "", "/");
     Element.prototype.scrollIntoView = vi.fn();
   });
 
@@ -530,6 +533,83 @@ describe("App", () => {
     expect(
       await screen.findByRole("button", { name: /save simple pasta/i })
     ).toBeInTheDocument();
+  });
+
+  it("renders the saved page with only saved recipes", async () => {
+    window.history.pushState({}, "", "/saved");
+    mockFetch({
+      usedCache: false,
+      total: 2,
+      enriched: 2,
+      savedRecipeIds: [7],
+      recipes: [
+        {
+          id: 7,
+          title: "Saved Salad",
+          url: "https://example.com/saved-salad",
+          categories: ["Salads"],
+          ingredients: ["lettuce"],
+          cookTime: "PT10M",
+          servings: "2",
+          enrichmentStatus: "enriched"
+        },
+        {
+          id: 8,
+          title: "Unsaved Roast",
+          url: "https://example.com/unsaved-roast",
+          categories: ["Main"],
+          ingredients: ["beef"],
+          cookTime: "PT2H",
+          servings: "4",
+          enrichmentStatus: "enriched"
+        }
+      ]
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /saved recipes/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Saved Salad" })).toHaveAttribute(
+      "href",
+      "https://example.com/saved-salad"
+    );
+    expect(screen.queryByText("Unsaved Roast")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /saved items/i })
+    ).toBeInTheDocument();
+  });
+
+  it("makes the recipe image a link to the recipe URL", async () => {
+    mockFetch({
+      usedCache: false,
+      total: 1,
+      enriched: 1,
+      recipes: [
+        {
+          id: 21,
+          title: "Image Link Soup",
+          url: "https://example.com/image-link-soup",
+          image: "https://images.example.com/soup.jpg",
+          categories: ["Soup"],
+          ingredients: ["stock"],
+          cookTime: "PT20M",
+          servings: "2",
+          enrichmentStatus: "enriched"
+        }
+      ]
+    });
+
+    render(<App />);
+    await screen.findByText(/1 total/i);
+    await searchFor("soup");
+
+    const imageLink = await screen.findByRole("link", {
+      name: /image link soup recipe image/i
+    });
+    expect(imageLink).toHaveAttribute(
+      "href",
+      "https://example.com/image-link-soup"
+    );
   });
 
   it("uses the bottom quick actions to jump to the main search and categories", async () => {
