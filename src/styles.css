@@ -153,6 +153,11 @@ h1 {
   font-weight: 700;
 }
 
+.hero-title-main,
+.hero-title-sub {
+  display: inline;
+}
+
 .total-pill {
   display: inline-flex;
   align-items: center;
@@ -696,6 +701,12 @@ h1 {
   box-shadow: 0 8px 16px rgba(239, 141, 89, 0.12);
 }
 
+.bookmark-btn.active {
+  background: linear-gradient(180deg, #7b63c7, var(--primary));
+  color: #fffdfb;
+  box-shadow: 0 12px 22px rgba(109, 84, 183, 0.2);
+}
+
 .bookmark-btn svg {
   width: 18px;
   height: 18px;
@@ -896,6 +907,10 @@ h1 {
   h1 {
     font-size: clamp(2.2rem, 10vw, 3rem);
     line-height: 0.94;
+  }
+
+  .hero-title-sub {
+    display: none;
   }
 
   .total-pill {

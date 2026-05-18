@@ -16,23 +16,43 @@ import {
 } from "../server/ingredients.js";
 
 function mockFetch(payload) {
-  global.fetch = vi.fn().mockImplementation(async (url, options) => ({
-    ok: true,
-    json: async () =>
-      url.startsWith("/api/recipes/status")
-        ? {
-            usedCache: payload.usedCache,
-            total: payload.total,
-            enriched: payload.enriched
-          }
-        : url.startsWith("/api/recipes/refresh")
+  let savedRecipeIds = [...(payload.savedRecipeIds ?? [])];
+  global.fetch = vi.fn().mockImplementation(async (url, options = {}) => {
+    if (url.startsWith("/api/saved-recipes")) {
+      if (options.method === "POST") {
+        const body = JSON.parse(options.body ?? "{}");
+        if (!savedRecipeIds.includes(body.recipeId)) {
+          savedRecipeIds = [...savedRecipeIds, body.recipeId];
+        }
+      } else if (options.method === "DELETE") {
+        const recipeId = Number(url.split("/").pop());
+        savedRecipeIds = savedRecipeIds.filter((id) => id !== recipeId);
+      }
+
+      return {
+        ok: true,
+        json: async () => ({ savedRecipeIds })
+      };
+    }
+
+    return {
+      ok: true,
+      json: async () =>
+        url.startsWith("/api/recipes/status")
           ? {
               usedCache: payload.usedCache,
               total: payload.total,
               enriched: payload.enriched
             }
-        : filterPayload(payload, url)
-  }));
+          : url.startsWith("/api/recipes/refresh")
+            ? {
+                usedCache: payload.usedCache,
+                total: payload.total,
+                enriched: payload.enriched
+              }
+            : filterPayload(payload, url)
+    };
+  });
 }
 
 function filterPayload(payload, url) {
@@ -471,6 +491,45 @@ describe("App", () => {
 
     expect(await screen.findByRole("button", { name: /remove pasta/i })).toBeInTheDocument();
     expect(await screen.findByText("Simple Pasta")).toBeInTheDocument();
+  });
+
+  it("saves and unsaves recipes through the bookmark button", async () => {
+    mockFetch({
+      usedCache: false,
+      total: 1,
+      enriched: 1,
+      recipes: [
+        {
+          id: 7,
+          title: "Simple Pasta",
+          url: "https://example.com/1",
+          categories: ["Quick ideas"],
+          ingredients: ["pasta"],
+          cookTime: "PT10M",
+          servings: "2",
+          enrichmentStatus: "enriched"
+        }
+      ]
+    });
+
+    render(<App />);
+    await screen.findByText(/1 total/i);
+    await userEvent.click(screen.getByRole("button", { name: "Quick ideas" }));
+    const saveButton = await screen.findByRole("button", {
+      name: /save simple pasta/i
+    });
+
+    await userEvent.click(saveButton);
+    expect(
+      await screen.findByRole("button", { name: /remove saved recipe simple pasta/i })
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /remove saved recipe simple pasta/i })
+    );
+    expect(
+      await screen.findByRole("button", { name: /save simple pasta/i })
+    ).toBeInTheDocument();
   });
 
   it("uses the bottom quick actions to jump to the main search and categories", async () => {

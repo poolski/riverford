@@ -129,7 +129,8 @@ describe("recipe service", () => {
     expect(service.getStatus()).toEqual({
       usedCache: false,
       total: 1,
-      enriched: 0
+      enriched: 0,
+      savedRecipeIds: []
     });
     store.close();
   });
@@ -225,6 +226,27 @@ describe("recipe service", () => {
         })
       ])
     );
+    store.close();
+  });
+
+  it("saves and unsaves recipes through the service", async () => {
+    const store = createRecipeStore(dbPath);
+    store.upsertRecipes([
+      {
+        url: "https://www.riverford.co.uk/recipes/aglio-olio",
+        title: "Aglio Olio"
+      }
+    ]);
+    const service = createRecipeService({ store, fetchText: vi.fn() });
+    const recipe = store.listRecipes()[0];
+
+    expect(service.listSavedRecipes()).toEqual({ savedRecipeIds: [] });
+    expect(await service.saveRecipe(recipe.id)).toEqual({
+      savedRecipeIds: [recipe.id]
+    });
+    expect(await service.unsaveRecipe(recipe.id)).toEqual({
+      savedRecipeIds: []
+    });
     store.close();
   });
 

@@ -15,6 +15,7 @@ export function App() {
   const [enrichedTotal, setEnrichedTotal] = useState(null);
   const [filters, setFilters] = useState(initialSearchState.filters);
   const [chips, setChips] = useState(initialSearchState.chips);
+  const [savedRecipeIds, setSavedRecipeIds] = useState([]);
   const [visibleCount, setVisibleCount] = useState(batchSize);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -43,6 +44,9 @@ export function App() {
           lastTotal = payload.total;
           setIndexedTotal(payload.total);
           setEnrichedTotal(payload.enriched);
+          setSavedRecipeIds(
+            Array.isArray(payload.savedRecipeIds) ? payload.savedRecipeIds : []
+          );
           setData((current) => ({
             ...payload,
             recipes: current?.recipes ?? []
@@ -165,6 +169,38 @@ export function App() {
     setChips((current) => current.filter((c) => c !== chip));
   }
 
+  async function toggleSavedRecipe(recipe) {
+    const recipeId = recipe.id;
+    const isSaved = savedRecipeIds.includes(recipeId);
+    const previousSavedIds = savedRecipeIds;
+    const nextSavedIds = isSaved
+      ? savedRecipeIds.filter((id) => id !== recipeId)
+      : [...savedRecipeIds, recipeId];
+    setSavedRecipeIds(nextSavedIds);
+
+    try {
+      const requestInit = isSaved
+        ? { method: "DELETE" }
+        : {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ recipeId })
+          };
+      const response = await fetch(
+        isSaved ? `/api/saved-recipes/${recipeId}` : "/api/saved-recipes",
+        requestInit
+      );
+      if (!response.ok) throw new Error("Unable to update saved recipes");
+      const payload = await response.json();
+      setSavedRecipeIds(
+        Array.isArray(payload?.savedRecipeIds) ? payload.savedRecipeIds : nextSavedIds
+      );
+    } catch (toggleError) {
+      setSavedRecipeIds(previousSavedIds);
+      setError(toggleError.message);
+    }
+  }
+
   async function handleRefresh() {
     setRefreshing(true);
     try {
@@ -200,7 +236,10 @@ export function App() {
           <LeafMark />
         </div>
         <div className="hero-heading-row">
-          <h1>Find a meal from the recipe archive</h1>
+          <h1>
+            <span className="hero-title-main">Find a meal</span>
+            <span className="hero-title-sub"> from the recipe archive</span>
+          </h1>
           {indexedTotal !== null ? (
             <p className="total-pill" aria-label="Total recipes indexed">
               <span aria-hidden="true" className="total-pill-icon">
@@ -373,7 +412,7 @@ export function App() {
                 ) : null}
                 {renderedRecipes.map((recipe) => (
                   <article
-                    className={`recipe-card${recipe.image ? " has-image" : ""}`}
+                          className={`recipe-card${recipe.image ? " has-image" : ""}`}
                     key={recipe.id}
                     style={
                       recipe.image
@@ -416,8 +455,10 @@ export function App() {
                         ) : null}
                         <button
                           type="button"
-                          className="bookmark-btn"
-                          aria-label={`Save ${recipe.title}`}
+                          className={`bookmark-btn${savedRecipeIds.includes(recipe.id) ? " active" : ""}`}
+                          aria-label={`${savedRecipeIds.includes(recipe.id) ? "Remove saved recipe" : "Save"} ${recipe.title}`}
+                          aria-pressed={savedRecipeIds.includes(recipe.id) ? "true" : "false"}
+                          onClick={() => toggleSavedRecipe(recipe)}
                         >
                           <BookmarkMark />
                         </button>

@@ -127,4 +127,23 @@ describe("recipe store", () => {
     ]);
     store.close();
   });
+
+  it("saves and unsaves recipes by id across store instances", () => {
+    const first = createRecipeStore(dbPath);
+    first.upsertRecipes([
+      {
+        url: "https://www.riverford.co.uk/recipes/a",
+        title: "Recipe A"
+      }
+    ]);
+    const recipe = first.listRecipes()[0];
+    first.saveRecipe(recipe.id);
+    first.close();
+
+    const second = createRecipeStore(dbPath);
+    expect(second.listSavedRecipeIds()).toEqual([recipe.id]);
+    second.unsaveRecipe(recipe.id);
+    expect(second.listSavedRecipeIds()).toEqual([]);
+    second.close();
+  });
 });

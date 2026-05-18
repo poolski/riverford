@@ -4,6 +4,9 @@ import {
   createApp,
   createRecipesHandler,
   createRefreshHandler,
+  createSaveRecipeHandler,
+  createSavedRecipesListHandler,
+  createUnsaveRecipeHandler,
   createStatusHandler
 } from "./http.js";
 
@@ -16,6 +19,9 @@ function makeService(overrides = {}) {
     enrichPendingRecipes: vi.fn().mockResolvedValue(undefined),
     listRecipes: vi.fn().mockReturnValue({ usedCache: false, total: 0, enriched: 0, recipes: [] }),
     getStatus: vi.fn().mockReturnValue({ usedCache: false, total: 0, enriched: 0 }),
+    listSavedRecipes: vi.fn().mockReturnValue({ savedRecipeIds: [] }),
+    saveRecipe: vi.fn().mockResolvedValue({ savedRecipeIds: [1] }),
+    unsaveRecipe: vi.fn().mockResolvedValue({ savedRecipeIds: [] }),
     ...overrides
   };
 }
@@ -194,6 +200,52 @@ describe("http api", () => {
       total: 3,
       enriched: 1
     });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("lists saved recipes", async () => {
+    const service = makeService({
+      listSavedRecipes: vi.fn().mockReturnValue({ savedRecipeIds: [1, 2] })
+    });
+    const json = vi.fn();
+    createSavedRecipesListHandler(service)({}, { json });
+
+    expect(json).toHaveBeenCalledWith({ savedRecipeIds: [1, 2] });
+  });
+
+  it("saves a recipe by recipeId", async () => {
+    const service = makeService({
+      saveRecipe: vi.fn().mockResolvedValue({ savedRecipeIds: [3] })
+    });
+    const json = vi.fn();
+    const next = vi.fn();
+
+    await createSaveRecipeHandler(service)(
+      { body: { recipeId: "3" } },
+      { json },
+      next
+    );
+
+    expect(service.saveRecipe).toHaveBeenCalledWith(3);
+    expect(json).toHaveBeenCalledWith({ savedRecipeIds: [3] });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("unsaves a recipe by recipeId", async () => {
+    const service = makeService({
+      unsaveRecipe: vi.fn().mockResolvedValue({ savedRecipeIds: [] })
+    });
+    const json = vi.fn();
+    const next = vi.fn();
+
+    await createUnsaveRecipeHandler(service)(
+      { params: { recipeId: "3" } },
+      { json },
+      next
+    );
+
+    expect(service.unsaveRecipe).toHaveBeenCalledWith(3);
+    expect(json).toHaveBeenCalledWith({ savedRecipeIds: [] });
     expect(next).not.toHaveBeenCalled();
   });
 });

@@ -105,8 +105,20 @@ export function createRecipeService({ store, fetchText }) {
         total: recipes.length,
         enriched: recipes.filter(
           (recipe) => recipe.enrichmentStatus === "enriched"
-        ).length
+        ).length,
+        savedRecipeIds: store.listSavedRecipeIds()
       };
+    },
+    listSavedRecipes() {
+      return { savedRecipeIds: store.listSavedRecipeIds() };
+    },
+    saveRecipe(recipeId) {
+      store.saveRecipe(recipeId);
+      return this.listSavedRecipes();
+    },
+    unsaveRecipe(recipeId) {
+      store.unsaveRecipe(recipeId);
+      return this.listSavedRecipes();
     },
     enrichPendingRecipes() {
       if (enrichmentPromise) return enrichmentPromise;

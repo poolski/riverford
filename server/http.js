@@ -13,6 +13,9 @@ export function createApp(service, { staticDir } = {}) {
   app.get("/api/recipes", createRecipesHandler(service));
   app.get("/api/recipes/status", createStatusHandler(service));
   app.post("/api/recipes/refresh", createRefreshHandler(service));
+  app.get("/api/saved-recipes", createSavedRecipesListHandler(service));
+  app.post("/api/saved-recipes", createSaveRecipeHandler(service));
+  app.delete("/api/saved-recipes/:recipeId", createUnsaveRecipeHandler(service));
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
   if (staticDir) {
@@ -78,6 +81,34 @@ export function createRefreshHandler(service) {
   };
 }
 
+export function createSavedRecipesListHandler(service) {
+  return (_request, response) => {
+    response.json(service.listSavedRecipes());
+  };
+}
+
+export function createSaveRecipeHandler(service) {
+  return async (request, response, next) => {
+    try {
+      const recipeId = parseRecipeId(request.body?.recipeId);
+      response.json(await service.saveRecipe(recipeId));
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+export function createUnsaveRecipeHandler(service) {
+  return async (request, response, next) => {
+    try {
+      const recipeId = parseRecipeId(request.params?.recipeId);
+      response.json(await service.unsaveRecipe(recipeId));
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
 function parseRecipeFilters(request) {
   return {
     terms: request.query?.q
@@ -94,4 +125,12 @@ function parseForceParam(value) {
   if (value === undefined) return false;
   const normalized = String(value).trim().toLowerCase();
   return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
+function parseRecipeId(value) {
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error("Invalid recipeId");
+  }
+  return parsed;
 }

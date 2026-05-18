@@ -7,6 +7,7 @@ export function createRecipeStore(dbPath) {
   const CURRENT_METADATA_VERSION = 5;
   mkdirSync(dirname(dbPath), { recursive: true });
   const db = new Database(dbPath);
+  db.pragma("foreign_keys = ON");
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS recipes (
@@ -23,6 +24,11 @@ export function createRecipeStore(dbPath) {
       refresh_requested_at TEXT,
       fetched_at TEXT,
       enriched_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS saved_recipes (
+      recipe_id INTEGER PRIMARY KEY,
+      saved_at TEXT NOT NULL,
+      FOREIGN KEY(recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
     );
   `);
   ensureColumn(db, "recipes", "cook_time", "TEXT");
@@ -80,6 +86,21 @@ export function createRecipeStore(dbPath) {
     SET refresh_requested_at = @refreshRequestedAt
     WHERE url = @url
   `);
+  const insertSavedRecipe = db.prepare(`
+    INSERT INTO saved_recipes (recipe_id, saved_at)
+    VALUES (@recipeId, @savedAt)
+    ON CONFLICT(recipe_id) DO UPDATE SET
+      saved_at = excluded.saved_at
+  `);
+  const deleteSavedRecipe = db.prepare(`
+    DELETE FROM saved_recipes
+    WHERE recipe_id = @recipeId
+  `);
+  const selectSavedRecipes = db.prepare(`
+    SELECT recipe_id, saved_at
+    FROM saved_recipes
+    ORDER BY saved_at DESC, recipe_id DESC
+  `);
 
   return {
     upsertRecipes(recipes) {
@@ -130,6 +151,18 @@ export function createRecipeStore(dbPath) {
         }
       });
       tx(urls);
+    },
+    listSavedRecipeIds() {
+      return selectSavedRecipes.all().map((row) => row.recipe_id);
+    },
+    saveRecipe(recipeId) {
+      insertSavedRecipe.run({
+        recipeId,
+        savedAt: new Date().toISOString()
+      });
+    },
+    unsaveRecipe(recipeId) {
+      deleteSavedRecipe.run({ recipeId });
     },
     close() {
       db.close();
