@@ -923,6 +923,7 @@ h1 {
   }
 
   .total-pill {
+    margin-top: 0;
     padding: 8px 12px;
     font-size: 0.88rem;
   }
@@ -1143,6 +1144,7 @@ h1 {
   }
 
   .total-pill {
+    margin-top: 0;
     padding: 7px 11px;
     font-size: 0.82rem;
   }
