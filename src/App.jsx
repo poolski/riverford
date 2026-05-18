@@ -744,7 +744,9 @@ function BottomActions({
         aria-label="Jump to search"
       >
         <span className="mobile-action-bar-label">
-          <SearchMark />
+          <span className="mobile-action-bar-glyph" aria-hidden="true">
+            ⌕
+          </span>
           <span>Search</span>
         </span>
       </button>
@@ -755,7 +757,9 @@ function BottomActions({
         aria-label="Jump to categories"
       >
         <span className="mobile-action-bar-label">
-          <SparkMark />
+          <span className="mobile-action-bar-glyph" aria-hidden="true">
+            ✦
+          </span>
           <span>Categories</span>
         </span>
       </button>
@@ -767,7 +771,9 @@ function BottomActions({
         aria-pressed={savedActive ? "true" : "false"}
       >
         <span className="mobile-action-bar-label">
-          <HeartMark />
+          <span className="mobile-action-bar-glyph" aria-hidden="true">
+            ♡
+          </span>
           <span>Saved</span>
         </span>
       </button>

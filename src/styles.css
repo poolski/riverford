@@ -1123,6 +1123,15 @@ h1 {
     line-height: 1;
   }
 
+  .mobile-action-bar-glyph {
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    font-size: 1.05rem;
+    line-height: 1;
+    flex: 0 0 auto;
+  }
+
   .mobile-action-bar button.primary {
     background: linear-gradient(180deg, #7559be, var(--primary));
     color: #fffdfb;
@@ -1133,10 +1142,6 @@ h1 {
     background: rgba(255, 250, 245, 0.92);
     border: 1px solid rgba(32, 37, 31, 0.08);
     color: var(--text);
-  }
-
-  .mobile-action-bar button.secondary svg {
-    transform: translateY(2px);
   }
 
   .mobile-action-bar button.saved {

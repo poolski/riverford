@@ -647,6 +647,34 @@ describe("App", () => {
     expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2);
   });
 
+
+  it("renders unicode glyphs in the mobile quick actions and no svg icons there", async () => {
+    mockFetch({
+      usedCache: false,
+      total: 1,
+      enriched: 1,
+      recipes: [
+        {
+          id: "r1",
+          title: "Simple Pasta",
+          url: "https://example.com/1",
+          categories: ["Main"],
+          ingredients: ["pasta"],
+          enrichmentStatus: "enriched"
+        }
+      ]
+    });
+
+    render(<App />);
+    await screen.findByText(/1 total/i);
+
+    const toolbar = screen.getByRole("navigation", { name: /quick actions/i });
+    expect(toolbar.querySelectorAll("svg")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: /jump to search/i })).toHaveTextContent("⌕");
+    expect(screen.getByRole("button", { name: /jump to categories/i })).toHaveTextContent("✦");
+    expect(screen.getByRole("button", { name: /saved items/i })).toHaveTextContent("♡");
+  });
+
   it("hides the trailing quick-category edge when scrolled to the end", () => {
     expect(
       getQuickCategoryEdgeState({
