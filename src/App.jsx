@@ -186,11 +186,23 @@ export function App() {
 
   return (
     <main className="app-shell">
+      <div className="hero-decor hero-decor-top" aria-hidden="true" />
+      <div className="hero-decor hero-decor-right" aria-hidden="true" />
       <header className="hero">
+        <div className="brand-mark" aria-label="Riverford Recipes">
+          <span className="brand-mark-wordmark" aria-hidden="true">
+            <strong>RIVERFORD</strong>
+            <span>RECIPES</span>
+          </span>
+          <LeafMark />
+        </div>
         <div className="hero-heading-row">
           <h1>Find a meal from the recipe archive</h1>
           {indexedTotal !== null ? (
             <p className="total-pill" aria-label="Total recipes indexed">
+              <span aria-hidden="true" className="total-pill-icon">
+                <BowlMark />
+              </span>
               {indexedTotal.toLocaleString()} total
             </p>
           ) : null}
@@ -268,7 +280,10 @@ export function App() {
             <>
               <section className="filters" aria-label="Recipe filters">
                 <label>
-                  Category
+                  <span className="filter-label-title">
+                    <TagMark />
+                    Category
+                  </span>
                   <select
                     value={filters.category}
                     onChange={(e) =>
@@ -286,7 +301,10 @@ export function App() {
                   </select>
                 </label>
                 <label>
-                  Servings
+                  <span className="filter-label-title">
+                    <PeopleMark />
+                    Servings
+                  </span>
                   <select
                     value={filters.servings}
                     onChange={(e) =>
@@ -303,7 +321,10 @@ export function App() {
                   </select>
                 </label>
                 <label>
-                  Cook time
+                  <span className="filter-label-title">
+                    <ClockMark />
+                    Cook time
+                  </span>
                   <select
                     value={filters.cookTime}
                     onChange={(e) =>
@@ -320,7 +341,10 @@ export function App() {
                   </select>
                 </label>
                 <label>
-                  Sort
+                  <span className="filter-label-title">
+                    <SortMark />
+                    Sort
+                  </span>
                   <select
                     value={filters.sort}
                     onChange={(e) =>
@@ -349,65 +373,78 @@ export function App() {
                         : undefined
                     }
                   >
-                    <div className="recipe-card-body">
-                    <h2>
-                      <a href={recipe.url} rel="noreferrer" target="_blank">
-                        {recipe.title}
-                      </a>
-                    </h2>
-                    {recipe.cookTime || recipe.servings ? (
-                      <div className="recipe-meta">
-                        {recipe.cookTime ? (
-                          <span className="meta-pill">
-                            <span aria-hidden="true" className="meta-icon">
-                              <svg viewBox="0 0 24 24" focusable="false">
-                                <circle cx="12" cy="12" r="8.5" />
-                                <path d="M12 7v5l3 2" />
-                              </svg>
-                            </span>
-                            {formatCookTime(recipe.cookTime)}
-                          </span>
-                        ) : null}
-                        {recipe.servings ? (
-                          <span className="meta-pill">
-                            <span aria-hidden="true" className="meta-icon">
-                              <svg viewBox="0 0 24 24" focusable="false">
-                                <circle cx="9" cy="9" r="2.5" />
-                                <circle cx="16" cy="10" r="2" />
-                                <path d="M4.5 17c.6-2.4 2.4-3.5 4.5-3.5s3.9 1.1 4.5 3.5" />
-                                <path d="M13.2 16.8c.4-1.7 1.8-2.6 3.4-2.6 1.6 0 2.8.8 3.4 2.6" />
-                              </svg>
-                            </span>
-                            Serves {recipe.servings}
-                          </span>
-                        ) : null}
+                    {recipe.image ? (
+                      <div
+                        className="recipe-card-media"
+                        aria-hidden="true"
+                        style={{ "--card-image": `url(${recipe.image})` }}
+                      />
+                    ) : (
+                      <div className="recipe-card-media recipe-card-media-fallback" aria-hidden="true">
+                        <span>{(recipe.title ?? "R").slice(0, 1)}</span>
                       </div>
-                    ) : null}
-                    <div className="tag-row">
-                      {recipe.categories.length > 0 ? (
-                        [...new Set(recipe.categories)].map((category) => (
-                          <span key={category}>{category}</span>
-                        ))
-                      ) : (
-                        <span className="muted">Loading recipe details…</span>
-                      )}
-                    </div>
-                    {recipe.matchCount ? (
-                      <>
-                        <p className="matches">
-                          You have {recipe.matchCount} of{" "}
-                          {recipe.normalizedIngredients.length} ingredients
-                        </p>
-                        <p className="matches matched">
-                          Matched: {summarizeIngredients(recipe.matchedIngredients)}
-                        </p>
-                        {recipe.missingIngredients.length > 0 ? (
-                          <p className="matches missing">
-                            Other ingredients: {summarizeIngredients(recipe.missingIngredients)}
-                          </p>
+                    )}
+                    <div className="recipe-card-body">
+                      <div className="recipe-card-topline">
+                        {recipe.cookTime || recipe.servings ? (
+                          <div className="recipe-meta">
+                            {recipe.cookTime ? (
+                              <span className="meta-pill">
+                                <span aria-hidden="true" className="meta-icon">
+                                  <ClockMark />
+                                </span>
+                                {formatCookTime(recipe.cookTime)}
+                              </span>
+                            ) : null}
+                            {recipe.servings ? (
+                              <span className="meta-pill">
+                                <span aria-hidden="true" className="meta-icon">
+                                  <PeopleMark />
+                                </span>
+                                Serves {recipe.servings}
+                              </span>
+                            ) : null}
+                          </div>
                         ) : null}
-                      </>
-                    ) : null}
+                        <button
+                          type="button"
+                          className="bookmark-btn"
+                          aria-label={`Save ${recipe.title}`}
+                        >
+                          <BookmarkMark />
+                        </button>
+                      </div>
+                      <h2>
+                        <a href={recipe.url} rel="noreferrer" target="_blank">
+                          {recipe.title}
+                        </a>
+                      </h2>
+                      <div className="tag-row">
+                        {recipe.categories.length > 0 ? (
+                          [...new Set(recipe.categories)].map((category) => (
+                            <span key={category}>{category}</span>
+                          ))
+                        ) : (
+                          <span className="muted">Loading recipe details…</span>
+                        )}
+                      </div>
+                      {recipe.matchCount ? (
+                        <div className="match-stack">
+                          <p className="matches">
+                            You have {recipe.matchCount} of{" "}
+                            {recipe.normalizedIngredients.length} ingredients
+                          </p>
+                          <p className="matches matched">
+                            Matched: {summarizeIngredients(recipe.matchedIngredients)}
+                          </p>
+                          {recipe.missingIngredients.length > 0 ? (
+                            <p className="matches missing">
+                              Other ingredients:{" "}
+                              {summarizeIngredients(recipe.missingIngredients)}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   </article>
                 ))}
@@ -420,6 +457,7 @@ export function App() {
                   />
                 ) : null}
               </section>
+              <BottomNav />
             </>
           )}
         </>
@@ -492,7 +530,10 @@ function UnifiedSearch({ onAddChips }) {
 
   return (
     <label className="unified-search">
-      <span>Search recipes or ingredients</span>
+      <span className="unified-search-label">
+        <SearchMark />
+        Search recipes or ingredients
+      </span>
       <span className="unified-search-controls">
         <input
           onChange={(e) => setDraft(e.target.value)}
@@ -568,13 +609,17 @@ function QuickCategories({ activeCategory, onSelectCategory }) {
   return (
     <section className="quick-categories" aria-label="Quick categories">
       <div className="quick-categories-head">
-        <p>Quick categories</p>
+        <p>
+          <span className="quick-categories-title-mark" aria-hidden="true">
+            <SparkMark />
+          </span>
+          Quick categories
+        </p>
+        <span className="quick-categories-hint">Swipe to see more →</span>
       </div>
-      <div className="quick-category-scroll-shell">
-        <span
-          aria-hidden="true"
-          className={`quick-category-fade quick-category-fade-start${edgeState.showStartFade ? " is-visible" : ""}`}
-        />
+      <div
+        className={`quick-category-scroll-shell${edgeState.showStartFade ? " has-start-fade" : ""}${edgeState.showEndFade ? " has-end-fade" : ""}`}
+      >
         <div
           className="quick-category-chips"
           ref={railRef}
@@ -596,12 +641,156 @@ function QuickCategories({ activeCategory, onSelectCategory }) {
             );
           })}
         </div>
-        <span
-          aria-hidden="true"
-          className={`quick-category-fade quick-category-fade-end${edgeState.showEndFade ? " is-visible" : ""}`}
-        />
       </div>
     </section>
+  );
+}
+
+function BottomNav() {
+  const items = [
+    { label: "Discover", icon: <CompassMark />, active: true },
+    { label: "Favourites", icon: <HeartMark /> },
+    { label: "Plan", icon: <CalendarMark /> },
+    { label: "Profile", icon: <ProfileMark /> }
+  ];
+
+  return (
+    <nav className="mobile-nav" aria-label="Primary">
+      {items.map((item) => (
+        <button
+          key={item.label}
+          className={item.active ? "active" : ""}
+          type="button"
+          aria-pressed={item.active ? "true" : "false"}
+        >
+          {item.icon}
+          <span>{item.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function LeafMark() {
+  return (
+    <svg viewBox="0 0 48 32" aria-hidden="true" focusable="false">
+      <path d="M22 27c8.4.4 15.3-4.8 18.2-12.2-6.5.1-11.6 1.7-15.5 4.8-2.4 1.9-3.9 4-4.5 7.4" />
+      <path d="M18 28c-4.3-2-8.4-6.8-8.4-12.8 0-4.2 2.5-8.3 7.1-11.5 3.8 6.8 4.7 13.1 2.8 24.3" />
+      <path d="M20.8 22.4c2.1-2 4.9-3.8 8.6-5.1" />
+    </svg>
+  );
+}
+
+function BowlMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 12c0 3 3.2 7 8 7s8-4 8-7" />
+      <path d="M5 12h14" />
+      <path d="M7 8c1.2 1 1.7 2.1 1.7 3.2" />
+      <path d="M12 7c1.2 1 1.7 2.1 1.7 3.2" />
+      <path d="M17 8c1.2 1 1.7 2.1 1.7 3.2" />
+    </svg>
+  );
+}
+
+function SearchMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="10.5" cy="10.5" r="5.5" />
+      <path d="M15 15l4 4" />
+    </svg>
+  );
+}
+
+function SparkMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 3l1.4 4.6L18 9l-4.6 1.4L12 15l-1.4-4.6L6 9l4.6-1.4L12 3z" />
+    </svg>
+  );
+}
+
+function TagMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4.5 10.5 10.5 4.5H19.5v9L13.5 19.5l-9-9Z" />
+      <circle cx="15.2" cy="8.2" r="1.1" />
+    </svg>
+  );
+}
+
+function PeopleMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="9" cy="8" r="2.4" />
+      <circle cx="16.5" cy="9.2" r="1.9" />
+      <path d="M4.5 18c.7-2.6 2.7-4 4.8-4s4.1 1.4 4.8 4" />
+      <path d="M13.3 17.5c.5-1.7 1.8-2.7 3.4-2.7 1.6 0 2.9 1 3.4 2.7" />
+    </svg>
+  );
+}
+
+function ClockMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="7.6" />
+      <path d="M12 8.5v4.2l2.9 1.7" />
+    </svg>
+  );
+}
+
+function SortMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M6 6h8" />
+      <path d="M6 12h12" />
+      <path d="M6 18h4" />
+      <path d="M17 5v14" />
+      <path d="M14.5 7.5 17 5l2.5 2.5" />
+    </svg>
+  );
+}
+
+function BookmarkMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.5L6 20V5.5a1 1 0 0 1 1-1Z" />
+    </svg>
+  );
+}
+
+function CompassMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="7.5" />
+      <path d="m9 15 2-5 4-2-2 5-4 2Z" />
+    </svg>
+  );
+}
+
+function HeartMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 19.5S4.8 15.1 4.8 9.6A3.8 3.8 0 0 1 8.6 5.8c1.5 0 2.8.8 3.4 2 .6-1.2 1.9-2 3.4-2a3.8 3.8 0 0 1 3.8 3.8c0 5.5-7.2 9.9-7.2 9.9Z" />
+    </svg>
+  );
+}
+
+function CalendarMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="5" y="6" width="14" height="13" rx="2" />
+      <path d="M8 4v4M16 4v4M5 10h14" />
+    </svg>
+  );
+}
+
+function ProfileMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="8" r="3.2" />
+      <path d="M5.5 19c1-3.4 3.5-5.4 6.5-5.4s5.5 2 6.5 5.4" />
+    </svg>
   );
 }
 
