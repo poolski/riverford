@@ -228,18 +228,14 @@ export function App() {
       <div className="hero-decor hero-decor-top" aria-hidden="true" />
       <div className="hero-decor hero-decor-right" aria-hidden="true" />
       <header className="hero">
-        <div className="brand-mark" aria-label="Riverford Recipes">
-          <span className="brand-mark-wordmark" aria-hidden="true">
-            <strong>RIVERFORD</strong>
-            <span>RECIPES</span>
-          </span>
-          <LeafMark />
-        </div>
-        <div className="hero-heading-row">
-          <h1>
-            <span className="hero-title-main">Find a meal</span>
-            <span className="hero-title-sub"> from the recipe archive</span>
-          </h1>
+        <div className="hero-top-row">
+          <div className="brand-mark" aria-label="Riverford Recipes">
+            <span className="brand-mark-wordmark" aria-hidden="true">
+              <strong>RIVERFORD</strong>
+              <span>RECIPES</span>
+            </span>
+            <LeafMark />
+          </div>
           {indexedTotal !== null ? (
             <p className="total-pill" aria-label="Total recipes indexed">
               <span aria-hidden="true" className="total-pill-icon">
@@ -248,6 +244,12 @@ export function App() {
               {indexedTotal.toLocaleString()} total
             </p>
           ) : null}
+        </div>
+        <div className="hero-heading-row">
+          <h1>
+            <span className="hero-title-main">Find a meal</span>
+            <span className="hero-title-sub"> from the recipe archive</span>
+          </h1>
         </div>
         {data ? (
           <RecipeStatus

@@ -109,6 +109,13 @@ svg {
   text-transform: uppercase;
 }
 
+.hero-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
 .brand-mark-wordmark {
   display: grid;
   gap: 2px;
@@ -138,8 +145,6 @@ svg {
 .hero-heading-row {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
 }
 
 h1 {
@@ -904,6 +909,10 @@ h1 {
     margin-bottom: 14px;
   }
 
+  .hero-top-row {
+    align-items: flex-start;
+  }
+
   h1 {
     font-size: clamp(2.2rem, 10vw, 3rem);
     line-height: 0.94;
@@ -1114,6 +1123,10 @@ h1 {
   .brand-mark {
     gap: 8px;
     letter-spacing: 0.22em;
+  }
+
+  .hero-top-row {
+    gap: 10px;
   }
 
   .brand-mark-wordmark strong {
