@@ -1118,7 +1118,7 @@ h1 {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
     line-height: 1;
   }
