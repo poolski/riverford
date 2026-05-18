@@ -1100,12 +1100,10 @@ h1 {
   }
 
   .mobile-action-bar button {
-    display: grid;
-    grid-template-columns: 22px auto;
+    display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    justify-items: center;
     border: 0;
     border-radius: 20px;
     background: transparent;
@@ -1144,11 +1142,17 @@ h1 {
   .mobile-action-bar button svg {
     width: 22px;
     height: 22px;
+    flex: 0 0 auto;
+    display: block;
     stroke: currentColor;
     stroke-width: 1.9;
     fill: none;
     stroke-linecap: round;
     stroke-linejoin: round;
+  }
+
+  .mobile-action-bar button span {
+    line-height: 1;
   }
 
   .welcome-state {
