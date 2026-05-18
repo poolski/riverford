@@ -11,6 +11,8 @@ export function App() {
   const batchSize = 20;
   const initialSearchState = loadSearchState();
   const [data, setData] = useState(null);
+  const [indexedTotal, setIndexedTotal] = useState(null);
+  const [enrichedTotal, setEnrichedTotal] = useState(null);
   const [filters, setFilters] = useState(initialSearchState.filters);
   const [chips, setChips] = useState(initialSearchState.chips);
   const [visibleCount, setVisibleCount] = useState(batchSize);
@@ -36,6 +38,8 @@ export function App() {
         const payload = await response.json();
         if (!cancelled) {
           lastTotal = payload.total;
+          setIndexedTotal(payload.total);
+          setEnrichedTotal(payload.enriched);
           setData((current) => ({
             ...payload,
             recipes: current?.recipes ?? []
@@ -66,20 +70,27 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (chips.length === 0) return;
+    if (chips.length === 0 && filters.category === "All") return;
     let cancelled = false;
     const controller = new AbortController();
 
     async function loadResults() {
       try {
         const response = await fetch(
-          buildRecipesUrl("/api/recipes", { chips }),
+          buildRecipesUrl("/api/recipes", {
+            chips,
+            category: filters.category
+          }),
           { signal: controller.signal }
         );
         if (!response.ok) throw new Error("Unable to load recipes");
         const payload = await response.json();
         if (!cancelled) {
-          setData(payload);
+          setData((current) => ({
+            ...payload,
+            total: current?.total ?? payload.total,
+            enriched: current?.enriched ?? payload.enriched
+          }));
           setError("");
         }
       } catch (loadError) {
@@ -92,7 +103,7 @@ export function App() {
       cancelled = true;
       controller.abort();
     };
-  }, [chips]);
+  }, [chips, filters.category]);
 
   const categories = useMemo(() => {
     const recipes = data?.recipes;
@@ -148,14 +159,7 @@ export function App() {
   }
 
   function removeChip(chip) {
-    setChips((current) => {
-      const next = current.filter((c) => c !== chip);
-      if (next.length === 0) {
-        setData((d) => (d ? { ...d, recipes: [] } : d));
-        setFilters((current) => ({ ...current, category: "All" }));
-      }
-      return next;
-    });
+    setChips((current) => current.filter((c) => c !== chip));
   }
 
   async function handleRefresh() {
@@ -171,6 +175,8 @@ export function App() {
       });
       if (response.ok) {
         const payload = await response.json();
+        setIndexedTotal(payload.total);
+        setEnrichedTotal(payload.enriched);
         setData((current) => ({ ...payload, recipes: current?.recipes ?? [] }));
       }
     } finally {
@@ -182,17 +188,17 @@ export function App() {
     <main className="app-shell">
       <header className="hero">
         <div className="hero-heading-row">
-        <h1>Find a meal from the recipe archive</h1>
-        {data ? (
-          <p className="total-pill" aria-label="Total recipes indexed">
-            {data.total.toLocaleString()} total
-          </p>
-        ) : null}
+          <h1>Find a meal from the recipe archive</h1>
+          {indexedTotal !== null ? (
+            <p className="total-pill" aria-label="Total recipes indexed">
+              {indexedTotal.toLocaleString()} total
+            </p>
+          ) : null}
         </div>
         {data ? (
           <RecipeStatus
-            total={data.total}
-            enriched={data.enriched}
+            total={indexedTotal ?? data.total}
+            enriched={enrichedTotal ?? data.enriched}
             refreshing={refreshing}
             onRefresh={handleRefresh}
             matchedCount={filteredRecipes.length}
@@ -215,6 +221,13 @@ export function App() {
         <>
           <UnifiedSearch onAddChips={addChips} />
 
+          <QuickCategories
+            activeCategory={filters.category}
+            onSelectCategory={(category) =>
+              setFilters((current) => ({ ...current, category }))
+            }
+          />
+
           {chips.length > 0 ? (
             <div className="search-chips" aria-label="Search terms">
               {chips.map((chip) => (
@@ -233,14 +246,17 @@ export function App() {
             </div>
           ) : null}
 
-          {chips.length === 0 ? (
+          {chips.length === 0 && filters.category === "All" ? (
             <section className="welcome-state">
               <div className="welcome-mark" aria-hidden="true">
                 ✦
               </div>
               <div>
                 <h2>Search by recipe name or ingredient.</h2>
-                <p>We'll only show matches once you search.</p>
+                <p>
+                  Add a search term, or choose a quick category to browse.
+                </p>
+                <StarterSearches onPickSearch={addChips} />
                 <div className="welcome-steps" aria-hidden="true">
                   <span>Type a term</span>
                   <span>Press Enter</span>
@@ -425,7 +441,7 @@ function RecipeStatus({
   const matchLabel =
     matchedCount === 1 ? "1 matching recipe" : `${matchedCount.toLocaleString()} matching recipes`;
   return (
-    <div className="recipe-status">
+    <div className={`recipe-status${hasQuery ? " has-query" : " idle"}`}>
       <div className="status-row">
         <div className="status-main">
           <p className="status">{hasQuery ? matchLabel : "Search to see matching recipes"}</p>
@@ -501,6 +517,109 @@ function UnifiedSearch({ onAddChips }) {
   );
 }
 
+const QUICK_CATEGORIES = [
+  "Quick ideas",
+  "Vegetarian",
+  "Vegetarian mains",
+  "Main",
+  "Side",
+  "Salads",
+  "Soups & stews",
+  "Pudding & Cake"
+];
+
+const STARTER_SEARCHES = ["pasta", "soup", "chicken", "salad"];
+
+function QuickCategories({ activeCategory, onSelectCategory }) {
+  const railRef = useRef(null);
+  const [edgeState, setEdgeState] = useState({
+    showStartFade: false,
+    showEndFade: false
+  });
+
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      setEdgeState(getQuickCategoryEdgeState(rail));
+    };
+
+    const scheduleUpdate = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(update);
+    };
+
+    rail.scrollLeft = 0;
+    update();
+    rail.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      rail.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, []);
+
+  return (
+    <section className="quick-categories" aria-label="Quick categories">
+      <div className="quick-categories-head">
+        <p>Quick categories</p>
+      </div>
+      <div className="quick-category-scroll-shell">
+        <span
+          aria-hidden="true"
+          className={`quick-category-fade quick-category-fade-start${edgeState.showStartFade ? " is-visible" : ""}`}
+        />
+        <div
+          className="quick-category-chips"
+          ref={railRef}
+          role="group"
+          aria-label="Quick category chips"
+        >
+          {QUICK_CATEGORIES.map((category) => {
+            const active = activeCategory === category;
+            return (
+              <button
+                key={category}
+                type="button"
+                className={active ? "active" : ""}
+                onClick={() => onSelectCategory(category)}
+                aria-pressed={active}
+              >
+                {category}
+              </button>
+            );
+          })}
+        </div>
+        <span
+          aria-hidden="true"
+          className={`quick-category-fade quick-category-fade-end${edgeState.showEndFade ? " is-visible" : ""}`}
+        />
+      </div>
+    </section>
+  );
+}
+
+function StarterSearches({ onPickSearch }) {
+  return (
+    <section className="starter-searches" aria-label="Starter searches">
+      <p>Try one of these searches</p>
+      <div className="starter-search-chips" role="group" aria-label="Starter search chips">
+        {STARTER_SEARCHES.map((term) => (
+          <button key={term} type="button" onClick={() => onPickSearch([term])}>
+            Try {term}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function formatCookTime(duration) {
   const match = duration.match(/^PT(?:(\d+)H)?(?:(\d+)M)?$/);
   if (!match) return duration;
@@ -509,6 +628,36 @@ function formatCookTime(duration) {
   if (hours && minutes) return `${hours} hr ${minutes} min`;
   if (hours) return `${hours} hr`;
   return `${minutes} min`;
+}
+
+export function getQuickCategoryEdgeState(
+  railOrMetrics,
+  maybeClientWidth,
+  maybeScrollWidth
+) {
+  const metrics =
+    typeof railOrMetrics === "object" &&
+    railOrMetrics !== null &&
+    "scrollLeft" in railOrMetrics
+      ? railOrMetrics
+      : {
+          scrollLeft: railOrMetrics,
+          clientWidth: maybeClientWidth,
+          scrollWidth: maybeScrollWidth
+        };
+
+  const scrollLeft = Number(metrics.scrollLeft ?? 0);
+  const clientWidth = Number(metrics.clientWidth ?? 0);
+  const scrollWidth = Number(metrics.scrollWidth ?? 0);
+  const maxScrollLeft = Math.max(0, scrollWidth - clientWidth);
+  const canScroll = scrollWidth > clientWidth + 1;
+  const atStart = scrollLeft <= 1;
+  const atEnd = scrollLeft >= maxScrollLeft - 1;
+
+  return {
+    showStartFade: canScroll && !atStart,
+    showEndFade: canScroll && !atEnd
+  };
 }
 
 function buildRecipesUrl(endpoint, { chips, category }) {

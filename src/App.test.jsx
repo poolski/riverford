@@ -5,6 +5,7 @@ import {
   App,
   getInitialVisibleCount,
   getNextVisibleCount,
+  getQuickCategoryEdgeState,
   loadSearchState,
   saveSearchState,
   summarizeIngredients
@@ -197,6 +198,135 @@ describe("App", () => {
     expect(
       screen.getByText(/search by recipe name or ingredient/i)
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /quick categories/i })
+    ).toBeInTheDocument();
+  });
+
+  it("shows recipes when a quick category is selected without ingredient chips", async () => {
+    mockFetch({
+      usedCache: false,
+      total: 2,
+      enriched: 2,
+      recipes: [
+        {
+          id: "r1",
+          title: "Fast Salad",
+          url: "https://example.com/1",
+          categories: ["Quick ideas"],
+          ingredients: ["tomato"],
+          cookTime: "PT10M",
+          servings: "2"
+        },
+        {
+          id: "r2",
+          title: "Slow Roast",
+          url: "https://example.com/2",
+          categories: ["Main"],
+          ingredients: ["potato"],
+          cookTime: "PT2H",
+          servings: "4"
+        }
+      ]
+    });
+
+    render(<App />);
+    await screen.findByText(/2 total/i);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Quick ideas" })
+    );
+
+    expect(await screen.findByText("Fast Salad")).toBeInTheDocument();
+    expect(screen.queryByText("Slow Roast")).not.toBeInTheDocument();
+  });
+
+  it("keeps total indexed pill bound to status total after search results load", async () => {
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      if (url.startsWith("/api/recipes/status")) {
+        return {
+          ok: true,
+          json: async () => ({ usedCache: false, total: 3012, enriched: 3012 })
+        };
+      }
+      if (url.startsWith("/api/recipes?q=")) {
+        return {
+          ok: true,
+          json: async () => ({
+            usedCache: false,
+            total: 3,
+            enriched: 3,
+            recipes: [
+              {
+                id: "r1",
+                title: "Pasta One",
+                url: "https://example.com/1",
+                categories: ["Main"],
+                ingredients: ["pasta"],
+                matchCount: 1,
+                matchedIngredients: ["pasta"],
+                missingIngredients: [],
+                normalizedIngredients: ["pasta"]
+              }
+            ]
+          })
+        };
+      }
+      return { ok: true, json: async () => ({ usedCache: false, total: 3012, enriched: 3012 }) };
+    });
+
+    render(<App />);
+    await screen.findByText(/3,012 total/i);
+
+    await searchFor("pasta");
+    await screen.findByText("Pasta One");
+
+    expect(screen.getByText(/3,012 total/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 matching recipe/i)).toBeInTheDocument();
+  });
+
+  it("keeps selected quick category when removing the last search chip", async () => {
+    mockFetch({
+      usedCache: false,
+      total: 2,
+      enriched: 2,
+      recipes: [
+        {
+          id: "r1",
+          title: "Soup One",
+          url: "https://example.com/1",
+          categories: ["Soups & stews"],
+          ingredients: ["pasta"],
+          cookTime: "PT30M",
+          servings: "2"
+        },
+        {
+          id: "r2",
+          title: "Main One",
+          url: "https://example.com/2",
+          categories: ["Main"],
+          ingredients: ["pasta"],
+          cookTime: "PT30M",
+          servings: "2"
+        }
+      ]
+    });
+
+    render(<App />);
+    await screen.findByText(/2 total/i);
+
+    await userEvent.click(screen.getByRole("button", { name: "Soups & stews" }));
+    await searchFor("pasta");
+    await screen.findByText("Soup One");
+
+    await userEvent.click(screen.getByRole("button", { name: /remove pasta/i }));
+
+    expect(screen.getByRole("button", { name: "Soups & stews" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(await screen.findByText("Soup One")).toBeInTheDocument();
+    expect(screen.queryByText("Main One")).not.toBeInTheDocument();
   });
 
   it("shows enrichment progress bar while enrichment is in progress", async () => {
@@ -314,6 +444,58 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByText(/loading recipes/i)).toBeInTheDocument();
+  });
+
+  it("shows starter search suggestions that begin a search", async () => {
+    mockFetch({
+      usedCache: false,
+      total: 1,
+      enriched: 1,
+      recipes: [
+        {
+          id: "r1",
+          title: "Simple Pasta",
+          url: "https://example.com/1",
+          categories: ["Main"],
+          ingredients: ["pasta"],
+          enrichmentStatus: "enriched"
+        }
+      ]
+    });
+
+    render(<App />);
+    await screen.findByText(/1 total/i);
+
+    await userEvent.click(screen.getByRole("button", { name: /try pasta/i }));
+
+    expect(await screen.findByRole("button", { name: /remove pasta/i })).toBeInTheDocument();
+    expect(await screen.findByText("Simple Pasta")).toBeInTheDocument();
+  });
+
+  it("hides the trailing quick-category edge when scrolled to the end", () => {
+    expect(
+      getQuickCategoryEdgeState({
+        scrollLeft: 220,
+        clientWidth: 320,
+        scrollWidth: 540
+      })
+    ).toEqual({
+      showStartFade: true,
+      showEndFade: false
+    });
+  });
+
+  it("hides the leading quick-category edge when at the beginning", () => {
+    expect(
+      getQuickCategoryEdgeState({
+        scrollLeft: 0,
+        clientWidth: 320,
+        scrollWidth: 540
+      })
+    ).toEqual({
+      showStartFade: false,
+      showEndFade: true
+    });
   });
 
   it("shows cached data notice and Riverford recipe links", async () => {
@@ -471,7 +653,11 @@ describe("App", () => {
     await searchFor("quick");
     await screen.findByText("Quick Supper");
 
-    expect(screen.getAllByText("Quick ideas")).toHaveLength(2);
+    const recipeCard = screen
+      .getByRole("link", { name: "Quick Supper" })
+      .closest("article");
+    expect(recipeCard).not.toBeNull();
+    expect(recipeCard.querySelectorAll(".tag-row span")).toHaveLength(1);
   });
 
   it("does not start a second poll while the first is still in flight", async () => {
