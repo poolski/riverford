@@ -316,6 +316,11 @@ h1 {
   backdrop-filter: blur(12px);
 }
 
+.unified-search,
+.quick-categories {
+  scroll-margin-top: 16px;
+}
+
 .unified-search-label {
   display: inline-flex;
   align-items: center;
@@ -767,7 +772,7 @@ h1 {
   height: 1px;
 }
 
-.mobile-nav {
+.mobile-action-bar {
   display: none;
 }
 
@@ -996,9 +1001,9 @@ h1 {
     font-size: 0.76rem;
   }
 
-  .mobile-nav {
+  .mobile-action-bar {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
     margin-top: 16px;
     padding: 10px;
@@ -1011,26 +1016,37 @@ h1 {
     backdrop-filter: blur(12px);
   }
 
-  .mobile-nav button {
+  .mobile-action-bar button {
     display: grid;
+    grid-template-columns: 22px auto;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     justify-items: center;
-    gap: 6px;
     border: 0;
     border-radius: 20px;
     background: transparent;
-    padding: 10px 6px 8px;
+    padding: 12px 10px;
+    min-height: 52px;
     color: #6a6f6a;
     cursor: pointer;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 600;
   }
 
-  .mobile-nav button.active {
-    background: rgba(113, 92, 190, 0.12);
-    color: var(--primary);
+  .mobile-action-bar button.primary {
+    background: linear-gradient(180deg, #7559be, var(--primary));
+    color: #fffdfb;
+    box-shadow: 0 12px 22px rgba(109, 84, 183, 0.2);
   }
 
-  .mobile-nav button svg {
+  .mobile-action-bar button.secondary {
+    background: rgba(255, 250, 245, 0.92);
+    border: 1px solid rgba(32, 37, 31, 0.08);
+    color: var(--text);
+  }
+
+  .mobile-action-bar button svg {
     width: 22px;
     height: 22px;
     stroke: currentColor;

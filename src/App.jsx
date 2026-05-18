@@ -20,6 +20,9 @@ export function App() {
   const [refreshing, setRefreshing] = useState(false);
   const abortControllerRef = useRef(null);
   const loadMoreRef = useRef(null);
+  const searchRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const categoriesRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -231,10 +234,15 @@ export function App() {
 
       {data ? (
         <>
-          <UnifiedSearch onAddChips={addChips} />
+          <UnifiedSearch
+            onAddChips={addChips}
+            sectionRef={searchRef}
+            inputRef={searchInputRef}
+          />
 
           <QuickCategories
             activeCategory={filters.category}
+            sectionRef={categoriesRef}
             onSelectCategory={(category) =>
               setFilters((current) => ({ ...current, category }))
             }
@@ -457,7 +465,21 @@ export function App() {
                   />
                 ) : null}
               </section>
-              <BottomNav />
+              <BottomActions
+                onSearchClick={() => {
+                  searchRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                  });
+                  searchInputRef.current?.focus({ preventScroll: true });
+                }}
+                onCategoriesClick={() => {
+                  categoriesRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                  });
+                }}
+              />
             </>
           )}
         </>
@@ -518,7 +540,7 @@ function RecipeStatus({
   );
 }
 
-function UnifiedSearch({ onAddChips }) {
+function UnifiedSearch({ onAddChips, sectionRef, inputRef }) {
   const [draft, setDraft] = useState("");
 
   function commitDraft() {
@@ -529,13 +551,14 @@ function UnifiedSearch({ onAddChips }) {
   }
 
   return (
-    <label className="unified-search">
+    <label className="unified-search" ref={sectionRef}>
       <span className="unified-search-label">
         <SearchMark />
         Search recipes or ingredients
       </span>
       <span className="unified-search-controls">
         <input
+          ref={inputRef}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -571,7 +594,7 @@ const QUICK_CATEGORIES = [
 
 const STARTER_SEARCHES = ["pasta", "soup", "chicken", "salad"];
 
-function QuickCategories({ activeCategory, onSelectCategory }) {
+function QuickCategories({ activeCategory, onSelectCategory, sectionRef }) {
   const railRef = useRef(null);
   const [edgeState, setEdgeState] = useState({
     showStartFade: false,
@@ -607,7 +630,7 @@ function QuickCategories({ activeCategory, onSelectCategory }) {
   }, []);
 
   return (
-    <section className="quick-categories" aria-label="Quick categories">
+    <section className="quick-categories" aria-label="Quick categories" ref={sectionRef}>
       <div className="quick-categories-head">
         <p>
           <span className="quick-categories-title-mark" aria-hidden="true">
@@ -646,27 +669,27 @@ function QuickCategories({ activeCategory, onSelectCategory }) {
   );
 }
 
-function BottomNav() {
-  const items = [
-    { label: "Discover", icon: <CompassMark />, active: true },
-    { label: "Favourites", icon: <HeartMark /> },
-    { label: "Plan", icon: <CalendarMark /> },
-    { label: "Profile", icon: <ProfileMark /> }
-  ];
-
+function BottomActions({ onSearchClick, onCategoriesClick }) {
   return (
-    <nav className="mobile-nav" aria-label="Primary">
-      {items.map((item) => (
-        <button
-          key={item.label}
-          className={item.active ? "active" : ""}
-          type="button"
-          aria-pressed={item.active ? "true" : "false"}
-        >
-          {item.icon}
-          <span>{item.label}</span>
-        </button>
-      ))}
+    <nav className="mobile-action-bar" aria-label="Quick actions">
+      <button
+        type="button"
+        className="primary"
+        onClick={onSearchClick}
+        aria-label="Jump to search"
+      >
+        <SearchMark />
+        <span>Search</span>
+      </button>
+      <button
+        type="button"
+        className="secondary"
+        onClick={onCategoriesClick}
+        aria-label="Jump to categories"
+      >
+        <SparkMark />
+        <span>Categories</span>
+      </button>
     </nav>
   );
 }
@@ -772,24 +795,6 @@ function HeartMark() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M12 19.5S4.8 15.1 4.8 9.6A3.8 3.8 0 0 1 8.6 5.8c1.5 0 2.8.8 3.4 2 .6-1.2 1.9-2 3.4-2a3.8 3.8 0 0 1 3.8 3.8c0 5.5-7.2 9.9-7.2 9.9Z" />
-    </svg>
-  );
-}
-
-function CalendarMark() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="5" y="6" width="14" height="13" rx="2" />
-      <path d="M8 4v4M16 4v4M5 10h14" />
-    </svg>
-  );
-}
-
-function ProfileMark() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <circle cx="12" cy="8" r="3.2" />
-      <path d="M5.5 19c1-3.4 3.5-5.4 6.5-5.4s5.5 2 6.5 5.4" />
     </svg>
   );
 }

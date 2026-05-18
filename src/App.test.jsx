@@ -109,6 +109,7 @@ async function searchFor(term) {
 describe("App", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   it("summarizes long ingredient lists with a compact tail count", () => {
@@ -470,6 +471,41 @@ describe("App", () => {
 
     expect(await screen.findByRole("button", { name: /remove pasta/i })).toBeInTheDocument();
     expect(await screen.findByText("Simple Pasta")).toBeInTheDocument();
+  });
+
+  it("uses the bottom quick actions to jump to the main search and categories", async () => {
+    mockFetch({
+      usedCache: false,
+      total: 1,
+      enriched: 1,
+      recipes: [
+        {
+          id: "r1",
+          title: "Simple Pasta",
+          url: "https://example.com/1",
+          categories: ["Main"],
+          ingredients: ["pasta"],
+          enrichmentStatus: "enriched"
+        }
+      ]
+    });
+
+    render(<App />);
+    await screen.findByText(/1 total/i);
+
+    await userEvent.click(screen.getByRole("button", { name: "Quick ideas" }));
+    expect(await screen.findByRole("button", { name: /jump to search/i })).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /jump to search/i })
+    );
+    expect(screen.getByRole("textbox", { name: /search recipes or ingredients/i })).toHaveFocus();
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /jump to categories/i })
+    );
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2);
   });
 
   it("hides the trailing quick-category edge when scrolled to the end", () => {
