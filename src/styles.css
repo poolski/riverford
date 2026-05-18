@@ -1144,6 +1144,7 @@ h1 {
     height: 22px;
     flex: 0 0 auto;
     display: block;
+    transform: translateY(1px);
     stroke: currentColor;
     stroke-width: 1.9;
     fill: none;
