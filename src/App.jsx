@@ -743,8 +743,10 @@ function BottomActions({
         onClick={onSearchClick}
         aria-label="Jump to search"
       >
-        <SearchMark />
-        <span>Search</span>
+        <span className="mobile-action-bar-label">
+          <SearchMark />
+          <span>Search</span>
+        </span>
       </button>
       <button
         type="button"
@@ -752,8 +754,10 @@ function BottomActions({
         onClick={onCategoriesClick}
         aria-label="Jump to categories"
       >
-        <SparkMark />
-        <span>Categories</span>
+        <span className="mobile-action-bar-label">
+          <SparkMark />
+          <span>Categories</span>
+        </span>
       </button>
       <button
         type="button"
@@ -762,8 +766,10 @@ function BottomActions({
         aria-label="Saved items"
         aria-pressed={savedActive ? "true" : "false"}
       >
-        <HeartMark />
-        <span>Saved</span>
+        <span className="mobile-action-bar-label">
+          <HeartMark />
+          <span>Saved</span>
+        </span>
       </button>
     </nav>
   );

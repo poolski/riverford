@@ -1103,7 +1103,6 @@ h1 {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
     border: 0;
     border-radius: 20px;
     background: transparent;
@@ -1113,6 +1112,15 @@ h1 {
     cursor: pointer;
     font-size: 0.78rem;
     font-weight: 600;
+  }
+
+  .mobile-action-bar-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    line-height: 1;
   }
 
   .mobile-action-bar button.primary {
@@ -1144,16 +1152,11 @@ h1 {
     height: 22px;
     flex: 0 0 auto;
     display: block;
-    transform: translateY(1px);
     stroke: currentColor;
     stroke-width: 1.9;
     fill: none;
     stroke-linecap: round;
     stroke-linejoin: round;
-  }
-
-  .mobile-action-bar button span {
-    line-height: 1;
   }
 
   .welcome-state {
