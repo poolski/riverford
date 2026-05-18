@@ -1135,6 +1135,10 @@ h1 {
     color: var(--text);
   }
 
+  .mobile-action-bar button.secondary svg {
+    transform: translateY(2px);
+  }
+
   .mobile-action-bar button.saved {
     background: rgba(255, 250, 245, 0.92);
     border: 1px solid rgba(32, 37, 31, 0.08);
